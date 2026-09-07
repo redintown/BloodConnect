@@ -4,7 +4,7 @@ import { useState } from "react";
 import { BLOOD_GROUPS, BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constants/bloodGroups";
 import { REQUEST_URGENCIES, type RequestUrgency } from "@/lib/constants/requestStatus";
 import { createBloodRequestSchema } from "@/schemas/bloodRequest.schema";
-import { createBloodRequestAction, updateBloodRequestAction } from "@/app/(requester)/actions";
+import { createBloodRequestAndFindDonorsAction, updateBloodRequestAction } from "@/app/(requester)/actions";
 import { LocationPicker } from "@/components/forms/LocationPicker";
 import type { BloodRequest, Coordinates } from "@/types/domain";
 
@@ -48,6 +48,7 @@ export function BloodRequestForm({
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<"idle" | "creating" | "matching">("idle");
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -89,6 +90,7 @@ export function BloodRequestForm({
     if (mode === "edit" && request) {
       const result = await updateBloodRequestAction(request.id, parsed.data);
       setLoading(false);
+      setLoadingStage("idle");
       if ("error" in result) {
         setError(result.error);
         return;
@@ -97,8 +99,15 @@ export function BloodRequestForm({
       return;
     }
 
-    const result = await createBloodRequestAction(parsed.data);
+    setLoadingStage("creating");
+    // Brief staged copy while the single server orchestration runs.
+    const stageTimer = window.setTimeout(() => setLoadingStage("matching"), 450);
+
+    const result = await createBloodRequestAndFindDonorsAction(parsed.data);
+    window.clearTimeout(stageTimer);
     setLoading(false);
+    setLoadingStage("idle");
+    // Successful create+match redirects; only errors return here.
     if (result?.error) setError(result.error);
   }
 
@@ -259,14 +268,21 @@ export function BloodRequestForm({
         disabled={loading}
         className="rounded-xl bg-emergency px-6 py-3 font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
       >
-        {loading
-          ? mode === "edit"
+        {mode === "edit"
+          ? loading
             ? "Saving…"
-            : "Submitting…"
-          : mode === "edit"
-            ? "Save changes"
-            : "Submit request"}
+            : "Save changes"
+          : loading
+            ? loadingStage === "matching"
+              ? "Finding compatible donors…"
+              : "Creating your request…"
+            : "Find Donors Now"}
       </button>
+      {mode === "create" && !loading && (
+        <p className="text-center text-xs text-gray-500">
+          Creates your request and searches nearby compatible donors in one step.
+        </p>
+      )}
     </form>
   );
 }

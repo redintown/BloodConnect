@@ -38,6 +38,31 @@ export async function createBloodRequestAction(
   redirect(`/requests/${requestId}`);
 }
 
+/**
+ * One-click create + Phase 4 match. Matching algorithm stays in matchingService.
+ */
+export async function createBloodRequestAndFindDonorsAction(
+  input: unknown
+): Promise<{ error: string } | void> {
+  const parsed = createBloodRequestSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  let requestId: string;
+  let matchCount = 0;
+  try {
+    const user = await requireAuth();
+    const created = await bloodRequestService.create(user.id, parsed.data);
+    requestId = created.id;
+    const matches = await matchingService.runMatchingForRequest(requestId, user.id);
+    matchCount = matches.length;
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidateRequesterPaths(requestId);
+  redirect(`/requests/${requestId}?matched=${matchCount}`);
+}
+
 export async function updateBloodRequestAction(
   requestId: string,
   input: unknown

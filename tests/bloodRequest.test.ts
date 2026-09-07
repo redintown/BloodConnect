@@ -135,3 +135,44 @@ describe("no matching side effects", () => {
     expect(() => assertRequesterStatusChange("PENDING", "MATCHING")).toThrow(AppError);
   });
 });
+
+describe("create + find donors orchestration", () => {
+  const root = path.resolve(__dirname, "..");
+
+  it("wires Find Donors Now to create then existing matchingService", () => {
+    const actions = readFileSync(path.join(root, "src/app/(requester)/actions.ts"), "utf8");
+    const form = readFileSync(path.join(root, "src/components/forms/BloodRequestForm.tsx"), "utf8");
+    const matching = readFileSync(path.join(root, "src/services/matchingService.ts"), "utf8");
+
+    expect(actions).toContain("createBloodRequestAndFindDonorsAction");
+    expect(actions).toContain("bloodRequestService.create");
+    expect(actions).toContain("matchingService.runMatchingForRequest");
+    expect(form).toContain("createBloodRequestAndFindDonorsAction");
+    expect(form).toContain("Find Donors Now");
+    expect(form).toContain("Creating your request…");
+    expect(form).toContain("Finding compatible donors…");
+    expect(form).toContain("disabled={loading}");
+
+    // Phase 4 algorithm files remain the matching owner.
+    expect(matching).toContain("runMatchingForRequest");
+    expect(matching).toContain("MATCH_SEARCH_RADII_METERS");
+    expect(actions).not.toContain("COMPATIBLE_DONORS_BY_RECIPIENT");
+    expect(actions).not.toContain("scoreMatchCandidate");
+  });
+
+  it("keeps Find Again / rerun on the request detail path", () => {
+    const button = readFileSync(
+      path.join(root, "src/components/forms/FindMatchingDonorsButton.tsx"),
+      "utf8"
+    );
+    const detail = readFileSync(
+      path.join(root, "src/app/(requester)/requests/[id]/page.tsx"),
+      "utf8"
+    );
+    expect(button).toContain("Find Again");
+    expect(button).toContain("findMatchingDonorsAction");
+    expect(detail).toContain("hasExistingMatches");
+    expect(detail).toContain("justMatchedCount");
+    expect(detail).toContain("No matching donors found nearby");
+  });
+});

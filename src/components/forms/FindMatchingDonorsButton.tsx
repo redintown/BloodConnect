@@ -4,7 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { findMatchingDonorsAction } from "@/app/(requester)/actions";
 
-export function FindMatchingDonorsButton({ requestId }: { requestId: string }) {
+export function FindMatchingDonorsButton({
+  requestId,
+  hasExistingMatches = false,
+}: {
+  requestId: string;
+  hasExistingMatches?: boolean;
+}) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,11 +28,13 @@ export function FindMatchingDonorsButton({ requestId }: { requestId: string }) {
     }
     setInfo(
       result.matchCount === 0
-        ? "No matching donors found within 30 km."
+        ? "No matching donors found nearby."
         : `Found ${result.matchCount} matching donor${result.matchCount === 1 ? "" : "s"}.`
     );
     router.refresh();
   }
+
+  const idleLabel = hasExistingMatches ? "Find Again" : "Find Matching Donors";
 
   return (
     <div className="flex flex-col gap-2">
@@ -34,9 +42,13 @@ export function FindMatchingDonorsButton({ requestId }: { requestId: string }) {
         type="button"
         onClick={onFind}
         disabled={loading}
-        className="rounded-xl bg-emergency px-4 py-3 text-sm font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
+        className={
+          hasExistingMatches
+            ? "rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+            : "rounded-xl bg-emergency px-4 py-3 text-sm font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
+        }
       >
-        {loading ? "Finding donors…" : "Find Matching Donors"}
+        {loading ? "Finding donors…" : idleLabel}
       </button>
       {error && (
         <p role="alert" className="text-sm text-red-600">

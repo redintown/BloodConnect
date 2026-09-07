@@ -7,9 +7,14 @@ import {
   canDonorRespond,
   canMarkDonorOnTheWay,
   canRespondToRequestStatus,
+  closingPopupChangesMatchStatus,
+  isActionableDonorMatch,
   isTerminalMatchStatus,
   mapDonorResponseRpcError,
   RESPONDABLE_MATCH_STATUSES,
+  selectActionableDonorMatches,
+  shouldShowDonorMatchPopup,
+  sortDonorMatchesByPopupPriority,
 } from "@/lib/matches/responseRules";
 import {
   canRequesterConfirmDonation,
@@ -18,7 +23,39 @@ import {
   canTransitionToDonorOnTheWay,
 } from "@/lib/requests/statusRules";
 import { recordDonationSchema } from "@/schemas/donation.schema";
-import type { AcceptedMatchContact } from "@/types/domain";
+import type { AcceptedMatchContact, DonorInboxMatch } from "@/types/domain";
+
+function inboxMatch(
+  overrides: {
+    matchId?: string;
+    bloodRequestId?: string;
+    donorId?: string;
+    matchStatus?: DonorInboxMatch["matchStatus"];
+    score?: number | null;
+    distanceMeters?: number | null;
+    respondedAt?: string | null;
+    request?: Partial<DonorInboxMatch["request"]>;
+  } = {}
+): DonorInboxMatch {
+  return {
+    matchId: overrides.matchId ?? "match-1",
+    bloodRequestId: overrides.bloodRequestId ?? "req-1",
+    donorId: overrides.donorId ?? "donor-1",
+    matchStatus: overrides.matchStatus ?? "MATCHED",
+    score: overrides.score ?? 10,
+    distanceMeters: overrides.distanceMeters ?? 1500,
+    respondedAt: overrides.respondedAt ?? null,
+    request: {
+      bloodGroup: "O_NEG",
+      quantityUnits: 2,
+      urgency: "HIGH",
+      requiredBy: "2026-09-08T12:00:00.000Z",
+      hospitalNameFreeform: "City Hospital",
+      status: "MATCHING",
+      ...overrides.request,
+    },
+  };
+}
 
 describe("match response transitions", () => {
   it("allows accept/decline from MATCHED, NOTIFIED, and VIEWED only", () => {
@@ -148,6 +185,74 @@ describe("contact privacy contract", () => {
   });
 });
 
+describe("donor portal match popup visibility", () => {
+  it("shows no popup when there are no actionable matches", () => {
+    expect(shouldShowDonorMatchPopup([])).toBe(false);
+    expect(
+      shouldShowDonorMatchPopup([
+        inboxMatch({ matchStatus: "ACCEPTED", request: { status: "DONOR_ACCEPTED" } }),
+      ])
+    ).toBe(false);
+  });
+
+  it("shows popup for MATCHED, NOTIFIED, and VIEWED while request is MATCHING", () => {
+    expect(isActionableDonorMatch(inboxMatch({ matchStatus: "MATCHED" }))).toBe(true);
+    expect(isActionableDonorMatch(inboxMatch({ matchStatus: "NOTIFIED" }))).toBe(true);
+    expect(isActionableDonorMatch(inboxMatch({ matchStatus: "VIEWED" }))).toBe(true);
+    expect(shouldShowDonorMatchPopup([inboxMatch({ matchStatus: "MATCHED" })])).toBe(true);
+    expect(shouldShowDonorMatchPopup([inboxMatch({ matchStatus: "NOTIFIED" })])).toBe(true);
+    expect(shouldShowDonorMatchPopup([inboxMatch({ matchStatus: "VIEWED" })])).toBe(true);
+  });
+
+  it("hides popup for ACCEPTED, DECLINED, and EXPIRED matches", () => {
+    expect(isActionableDonorMatch(inboxMatch({ matchStatus: "ACCEPTED" }))).toBe(false);
+    expect(isActionableDonorMatch(inboxMatch({ matchStatus: "DECLINED" }))).toBe(false);
+    expect(isActionableDonorMatch(inboxMatch({ matchStatus: "EXPIRED" }))).toBe(false);
+  });
+
+  it("closing the popup does not change match status", () => {
+    expect(closingPopupChangesMatchStatus()).toBe(false);
+  });
+
+  it("does not treat MATCHED + CANCELLED/COMPLETED as actionable", () => {
+    expect(
+      isActionableDonorMatch(
+        inboxMatch({ matchStatus: "MATCHED", request: { status: "CANCELLED" } })
+      )
+    ).toBe(false);
+    expect(
+      isActionableDonorMatch(
+        inboxMatch({ matchStatus: "MATCHED", request: { status: "COMPLETED" } })
+      )
+    ).toBe(false);
+    expect(
+      isActionableDonorMatch(
+        inboxMatch({ matchStatus: "MATCHED", request: { status: "PENDING" } })
+      )
+    ).toBe(false);
+  });
+
+  it("selects a single prioritized queue instead of multiple simultaneous modals", () => {
+    const selected = selectActionableDonorMatches([
+      inboxMatch({
+        matchId: "m-mod",
+        matchStatus: "MATCHED",
+        request: { urgency: "MODERATE", requiredBy: "2026-09-10T00:00:00.000Z" },
+      }),
+      inboxMatch({
+        matchId: "m-crit",
+        matchStatus: "NOTIFIED",
+        request: { urgency: "CRITICAL", requiredBy: "2026-09-09T00:00:00.000Z" },
+      }),
+      inboxMatch({ matchId: "m-done", matchStatus: "DECLINED" }),
+    ]);
+    const ranked = sortDonorMatchesByPopupPriority(selected);
+    expect(ranked).toHaveLength(2);
+    expect(ranked[0]?.matchId).toBe("m-crit");
+    expect(ranked.map((m) => m.matchId)).not.toContain("m-done");
+  });
+});
+
 describe("Phase 5 source guards", () => {
   const root = path.join(__dirname, "..");
 
@@ -159,12 +264,65 @@ describe("Phase 5 source guards", () => {
       "src/app/(donor)/actions.ts",
       "src/app/(requester)/actions.ts",
       "src/app/(donor)/donor/requests/page.tsx",
+      "src/app/(donor)/donor/page.tsx",
+      "src/components/forms/DonorMatchPopup.tsx",
     ];
     for (const relative of files) {
       const source = readFileSync(path.join(root, relative), "utf8");
       expect(source).not.toContain("notificationService");
       expect(source).not.toContain("notifyBatch");
     }
+  });
+
+  it("popup reuses existing Phase 5 accept/decline actions and a single dialog", () => {
+    const popup = readFileSync(
+      path.join(root, "src/components/forms/DonorMatchPopup.tsx"),
+      "utf8"
+    );
+    const overlay = readFileSync(
+      path.join(root, "src/components/forms/DonorPortalMatchOverlay.tsx"),
+      "utf8"
+    );
+    const layout = readFileSync(path.join(root, "src/app/(donor)/layout.tsx"), "utf8");
+    const dashboard = readFileSync(path.join(root, "src/app/(donor)/donor/page.tsx"), "utf8");
+    const home = readFileSync(path.join(root, "src/app/page.tsx"), "utf8");
+
+    expect(popup).toContain("acceptMatchAction");
+    expect(popup).toContain("declineMatchAction");
+    expect(popup).toContain("markOnTheWayAction");
+    expect(popup).toContain('role="dialog"');
+    expect(popup).toContain("Maybe later");
+    expect(popup).not.toContain("accept_blood_request_match");
+
+    // Global portal mount — not only the dashboard / "I want to donate" entry.
+    expect(layout).toContain("DonorPortalMatchOverlay");
+    expect(overlay).toContain("listMatchesForDonor");
+    expect(overlay).toContain("selectActionableDonorMatches");
+    expect(overlay).toContain("DonorMatchPopup");
+    expect(dashboard).not.toContain("DonorMatchPopup");
+    expect(dashboard).not.toContain("DonorPortalMatchOverlay");
+
+    // Landing CTA is only a link into the portal; it must not gate the popup.
+    expect(home).toContain("I want to donate");
+    expect(home).toContain('href="/donor"');
+    expect(home).not.toContain("DonorMatchPopup");
+  });
+
+  it("keeps /donor/requests inbox wired to DonorMatchActions", () => {
+    const inbox = readFileSync(
+      path.join(root, "src/app/(donor)/donor/requests/page.tsx"),
+      "utf8"
+    );
+    expect(inbox).toContain("DonorMatchActions");
+    expect(inbox).toContain("listMatchesForDonor");
+  });
+
+  it("mounts exactly one portal overlay from the donor layout shell", () => {
+    const layout = readFileSync(path.join(root, "src/app/(donor)/layout.tsx"), "utf8");
+    expect(layout).toContain('import { DonorPortalMatchOverlay }');
+    expect(layout).toContain("<DonorPortalMatchOverlay userId={user.id} />");
+    expect(layout.match(/<DonorPortalMatchOverlay/g)?.length).toBe(1);
+    expect(layout).toContain('protectPage({ role: "DONOR" })');
   });
 
   it("keeps Phase 4 matching algorithm files free of response RPCs", () => {

@@ -22,7 +22,13 @@ import { matchingService } from "@/services/matchingService";
 import { matchResponseService } from "@/services/matchResponseService";
 import { requireAuth } from "@/services/authService";
 
-export default async function RequestDetailPage({ params }: { params: { id: string } }) {
+export default async function RequestDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { matched?: string };
+}) {
   const user = await requireAuth();
   const request = await bloodRequestService.getById(params.id);
   if (!request) notFound();
@@ -33,6 +39,12 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   const canConfirm = canRequesterConfirmDonation(request.status);
   const matches = await matchingService.listMatchesForRequester(request.id, user.id);
   const accepted = matches.find((m) => m.matchStatus === "ACCEPTED");
+
+  const matchedParam = searchParams?.matched;
+  const justMatchedCount =
+    matchedParam != null && matchedParam !== "" && !Number.isNaN(Number(matchedParam))
+      ? Number(matchedParam)
+      : null;
 
   let acceptedContact = null;
   if (accepted?.matchId) {
@@ -127,7 +139,19 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold text-gray-800">Matching donors</h2>
-        {matchable && <FindMatchingDonorsButton requestId={request.id} />}
+        {justMatchedCount != null && (
+          <p className="text-sm text-green-700">
+            {justMatchedCount === 0
+              ? "No matching donors found nearby."
+              : `Found ${justMatchedCount} matching donor${justMatchedCount === 1 ? "" : "s"}.`}
+          </p>
+        )}
+        {matchable && (
+          <FindMatchingDonorsButton
+            requestId={request.id}
+            hasExistingMatches={matches.length > 0}
+          />
+        )}
         {!matchable && (
           <p className="text-sm text-gray-500">
             Matching is not available for requests with status {STATUS_LABELS[request.status]}.
@@ -135,8 +159,8 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
         )}
         {matches.length === 0 ? (
           <EmptyState
-            title="No matches yet"
-            description="Use Find Matching Donors to search nearby compatible donors."
+            title="No matching donors found nearby"
+            description="Try Find Matching Donors again later, or widen availability by asking nearby donors to update their profile."
           />
         ) : (
           <div className="flex flex-col gap-2">

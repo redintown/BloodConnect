@@ -1,5 +1,6 @@
 import { AppError } from "@/lib/errors/AppError";
-import type { BloodRequestStatus, DonorResponseStatus } from "@/lib/constants/requestStatus";
+import type { BloodRequestStatus, DonorResponseStatus, RequestUrgency } from "@/lib/constants/requestStatus";
+import type { DonorInboxMatch } from "@/types/domain";
 
 /** Match statuses a donor may still accept or decline. */
 export const RESPONDABLE_MATCH_STATUSES: readonly DonorResponseStatus[] = [
@@ -7,6 +8,12 @@ export const RESPONDABLE_MATCH_STATUSES: readonly DonorResponseStatus[] = [
   "NOTIFIED",
   "VIEWED",
 ];
+
+const URGENCY_RANK: Record<RequestUrgency, number> = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MODERATE: 2,
+};
 
 /** Match statuses that are terminal for donor response. */
 export const TERMINAL_MATCH_STATUSES: readonly DonorResponseStatus[] = [
@@ -33,6 +40,49 @@ export function isTerminalMatchStatus(matchStatus: string): boolean {
 /** Request must still be MATCHING for accept/decline. */
 export function canRespondToRequestStatus(requestStatus: BloodRequestStatus): boolean {
   return requestStatus === "MATCHING";
+}
+
+/**
+ * Inbox rows that should trigger the donor portal match popup
+ * (and Accept/Decline). Pure — safe for unit tests.
+ */
+export function isActionableDonorMatch(match: Pick<DonorInboxMatch, "matchStatus" | "request">): boolean {
+  return canDonorRespond(match.matchStatus) && canRespondToRequestStatus(match.request.status);
+}
+
+/** Filter actionable matches for the donor dashboard popup. */
+export function selectActionableDonorMatches(matches: DonorInboxMatch[]): DonorInboxMatch[] {
+  return matches.filter(isActionableDonorMatch);
+}
+
+/**
+ * Highest urgency first, then soonest requiredBy, then highest score.
+ * Used so a single popup shows the most important request.
+ */
+export function sortDonorMatchesByPopupPriority(matches: DonorInboxMatch[]): DonorInboxMatch[] {
+  return [...matches].sort((a, b) => {
+    const urgencyDiff = URGENCY_RANK[a.request.urgency] - URGENCY_RANK[b.request.urgency];
+    if (urgencyDiff !== 0) return urgencyDiff;
+
+    const aBy = a.request.requiredBy ? new Date(a.request.requiredBy).getTime() : Number.POSITIVE_INFINITY;
+    const bBy = b.request.requiredBy ? new Date(b.request.requiredBy).getTime() : Number.POSITIVE_INFINITY;
+    if (aBy !== bBy) return aBy - bBy;
+
+    const aScore = a.score ?? Number.NEGATIVE_INFINITY;
+    const bScore = b.score ?? Number.NEGATIVE_INFINITY;
+    if (bScore !== aScore) return bScore - aScore;
+
+    return a.matchId.localeCompare(b.matchId);
+  });
+}
+
+export function shouldShowDonorMatchPopup(matches: DonorInboxMatch[]): boolean {
+  return selectActionableDonorMatches(matches).length > 0;
+}
+
+/** Closing / "Maybe Later" never mutates match status — presentation only. */
+export function closingPopupChangesMatchStatus(): boolean {
+  return false;
 }
 
 export function canMarkDonorOnTheWay(
