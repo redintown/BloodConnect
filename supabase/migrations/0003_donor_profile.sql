@@ -22,7 +22,8 @@ stable
 security invoker
 set search_path = public
 as $$
-  select ST_Y(location::geometry), ST_X(location::geometry)
+  select extensions.ST_Y(location::extensions.geometry),
+       extensions.ST_X(location::extensions.geometry)
   from donor_profiles
   where user_id = auth.uid()
     and location is not null;
@@ -52,7 +53,10 @@ begin
   end if;
 
   update donor_profiles
-    set location = ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326)::geography,
+    set location = extensions.ST_SetSRID(
+      extensions.ST_MakePoint(p_lng, p_lat),
+      4326
+    )::extensions.geography,
         location_updated_at = now(),
         updated_at = now()
   where user_id = auth.uid();
