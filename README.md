@@ -107,13 +107,13 @@ tests/            a small set of representative unit tests
 ## MVP roadmap
 
 - [x] Phase 0 — Foundation / skeleton
-- [ ] Phase 1 — Authentication
-- [ ] Phase 2 — Donor profile
-- [ ] Phase 3 — Blood request (requester flow)
-- [ ] Phase 4 — Blood compatibility + nearby matching
-- [ ] Phase 5 — Contact + donor response
-- [ ] Phase 6 — Notifications
-- [ ] Phase 7 — Emergency escalation
+- [x] Phase 1 — Authentication
+- [x] Phase 2 — Donor profile
+- [x] Phase 3 — Blood request (requester flow)
+- [x] Phase 4 — Blood compatibility + nearby matching
+- [x] Phase 5 — Contact + donor response
+- [x] Phase 6 — Notifications
+- [x] Phase 7 — Emergency escalation
 - [ ] Phase 8 — Hospital + blood bank
 - [ ] Phase 9 — Admin
 - [ ] Phase 10 — Production hardening
