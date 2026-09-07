@@ -15,6 +15,8 @@ const ownProfile: DonorProfile = {
   location: { latitude: 23.8103, longitude: 90.4125 },
   isAvailable: true,
   isAvailableAtNight: true,
+  emergencyResponseEnabled: false,
+  emergencyRadiusKm: 10,
 };
 
 describe("donor profile schema", () => {

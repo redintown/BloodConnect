@@ -146,16 +146,19 @@ describe("create + find donors orchestration", () => {
 
     expect(actions).toContain("createBloodRequestAndFindDonorsAction");
     expect(actions).toContain("bloodRequestService.create");
-    expect(actions).toContain("matchingService.runMatchingForRequest");
+    expect(actions).toContain("runMatchingWithNotifications");
     expect(form).toContain("createBloodRequestAndFindDonorsAction");
     expect(form).toContain("Find Donors Now");
     expect(form).toContain("Creating your request…");
     expect(form).toContain("Finding compatible donors…");
     expect(form).toContain("disabled={loading}");
+    expect(form).toContain("Emergency request");
+    expect(form).toContain("isEmergency");
 
     // Phase 4 algorithm files remain the matching owner.
     expect(matching).toContain("runMatchingForRequest");
     expect(matching).toContain("MATCH_SEARCH_RADII_METERS");
+    expect(matching).not.toContain("notificationService");
     expect(actions).not.toContain("COMPATIBLE_DONORS_BY_RECIPIENT");
     expect(actions).not.toContain("scoreMatchCandidate");
   });

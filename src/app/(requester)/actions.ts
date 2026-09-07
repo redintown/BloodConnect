@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { AppError } from "@/lib/errors/AppError";
 import { requireAuth } from "@/services/authService";
 import { bloodRequestService } from "@/services/bloodRequestService";
-import { matchingService } from "@/services/matchingService";
+import { runMatchingWithNotifications } from "@/services/requestMatchOrchestrator";
 import { createBloodRequestSchema } from "@/schemas/bloodRequest.schema";
 
 function actionError(error: unknown): { error: string } {
@@ -16,6 +16,8 @@ function actionError(error: unknown): { error: string } {
 function revalidateRequesterPaths(requestId?: string) {
   revalidatePath("/requests");
   revalidatePath("/request-blood");
+  revalidatePath("/donor");
+  revalidatePath("/donor/requests");
   if (requestId) revalidatePath(`/requests/${requestId}`);
 }
 
@@ -39,7 +41,7 @@ export async function createBloodRequestAction(
 }
 
 /**
- * One-click create + Phase 4 match. Matching algorithm stays in matchingService.
+ * One-click create + Phase 4 match + Phase 6 notify/emergency orchestration.
  */
 export async function createBloodRequestAndFindDonorsAction(
   input: unknown
@@ -49,18 +51,22 @@ export async function createBloodRequestAndFindDonorsAction(
 
   let requestId: string;
   let matchCount = 0;
+  let emergencyNotifiedCount = 0;
   try {
     const user = await requireAuth();
     const created = await bloodRequestService.create(user.id, parsed.data);
     requestId = created.id;
-    const matches = await matchingService.runMatchingForRequest(requestId, user.id);
-    matchCount = matches.length;
+    const result = await runMatchingWithNotifications(requestId, user.id);
+    matchCount = result.matchCount;
+    emergencyNotifiedCount = result.emergencyNotifiedCount;
   } catch (error) {
     return actionError(error);
   }
 
   revalidateRequesterPaths(requestId);
-  redirect(`/requests/${requestId}?matched=${matchCount}`);
+  redirect(
+    `/requests/${requestId}?matched=${matchCount}&emergency=${emergencyNotifiedCount}`
+  );
 }
 
 export async function updateBloodRequestAction(
@@ -97,12 +103,16 @@ export async function cancelBloodRequestAction(
 
 export async function findMatchingDonorsAction(
   requestId: string
-): Promise<{ error: string } | { ok: true; matchCount: number }> {
+): Promise<{ error: string } | { ok: true; matchCount: number; emergencyNotifiedCount: number }> {
   try {
     const user = await requireAuth();
-    const matches = await matchingService.runMatchingForRequest(requestId, user.id);
+    const result = await runMatchingWithNotifications(requestId, user.id);
     revalidateRequesterPaths(requestId);
-    return { ok: true, matchCount: matches.length };
+    return {
+      ok: true,
+      matchCount: result.matchCount,
+      emergencyNotifiedCount: result.emergencyNotifiedCount,
+    };
   } catch (error) {
     return actionError(error);
   }

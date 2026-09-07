@@ -13,6 +13,8 @@ export const createBloodRequestSchema = z
     hospitalNameFreeform: z.string().trim().max(200).optional().nullable(),
     location: coordinatesSchema,
     notes: z.string().trim().max(500).optional().nullable(),
+    /** Explicit opt-in — never inferred from urgency alone. */
+    isEmergency: z.boolean().default(false),
   })
   .merge(contactInfoSchema)
   .refine((data) => data.hospitalId || data.hospitalNameFreeform, {

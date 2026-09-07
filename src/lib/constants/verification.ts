@@ -9,5 +9,8 @@ export const ESCALATION_LEVELS = [
 ] as const;
 export type EscalationLevel = (typeof ESCALATION_LEVELS)[number];
 
-export const NOTIFICATION_CHANNELS = ["WEB_PUSH", "SMS", "EMAIL", "WHATSAPP"] as const;
+export const NOTIFICATION_CHANNELS = ["WEB_PUSH", "SMS", "EMAIL", "WHATSAPP", "IN_APP"] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+export const NOTIFICATION_KINDS = ["MATCH_NOTIFY", "EMERGENCY_RESPONSE"] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

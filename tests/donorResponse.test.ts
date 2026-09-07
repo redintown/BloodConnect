@@ -52,6 +52,7 @@ function inboxMatch(
       requiredBy: "2026-09-08T12:00:00.000Z",
       hospitalNameFreeform: "City Hospital",
       status: "MATCHING",
+      isEmergency: false,
       ...overrides.request,
     },
   };

@@ -46,10 +46,11 @@ interface BloodRequestRow {
   created_at: string;
   updated_at: string;
   expires_at: string | null;
+  is_emergency: boolean;
 }
 
 const REQUEST_COLUMNS =
-  "id, requester_id, blood_group, quantity_units, urgency, required_by, hospital_id, hospital_name_freeform, contact_name, contact_phone, status, notes, created_at, updated_at, expires_at";
+  "id, requester_id, blood_group, quantity_units, urgency, required_by, hospital_id, hospital_name_freeform, contact_name, contact_phone, status, notes, created_at, updated_at, expires_at, is_emergency";
 
 export interface BloodRequestService {
   create(requesterId: string, input: CreateBloodRequestInput): Promise<BloodRequest>;
@@ -127,6 +128,7 @@ async function toDomain(row: BloodRequestRow): Promise<BloodRequest> {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     expiresAt: row.expires_at,
+    isEmergency: row.is_emergency ?? false,
   };
 }
 
@@ -170,6 +172,7 @@ export const bloodRequestService: BloodRequestService = {
       p_required_by: parsed.data.requiredBy ?? null,
       p_notes: parsed.data.notes ?? null,
       p_expires_at: expiresAtFromInput(parsed.data),
+      p_is_emergency: parsed.data.isEmergency ?? false,
     });
 
     if (error || !data) throw AppError.server(error);
@@ -206,6 +209,7 @@ export const bloodRequestService: BloodRequestService = {
       contactName: patch.contactName ?? existing.contact_name,
       contactPhone: patch.contactPhone ?? existing.contact_phone,
       notes: patch.notes !== undefined ? patch.notes : existing.notes,
+      isEmergency: patch.isEmergency !== undefined ? patch.isEmergency : existing.is_emergency,
     };
 
     const parsed = createBloodRequestSchema.safeParse(merged);
@@ -227,6 +231,7 @@ export const bloodRequestService: BloodRequestService = {
         contact_phone: parsed.data.contactPhone,
         notes: parsed.data.notes ?? null,
         expires_at: expiresAtFromInput(parsed.data),
+        is_emergency: parsed.data.isEmergency ?? false,
       })
       .eq("id", requestId)
       .eq("requester_id", requesterId)

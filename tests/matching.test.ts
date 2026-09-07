@@ -39,6 +39,7 @@ const baseRequest: BloodRequest = {
   createdAt: "2026-09-07T00:00:00.000Z",
   updatedAt: "2026-09-07T00:00:00.000Z",
   expiresAt: null,
+  isEmergency: false,
 };
 
 function candidate(overrides: Partial<Parameters<typeof passesHardMatchingCriteria>[0]> = {}) {
@@ -254,6 +255,8 @@ describe("privacy and no notification side effects", () => {
       location: { latitude: 23.8103, longitude: 90.4125 },
       isAvailable: true,
       isAvailableAtNight: true,
+      emergencyResponseEnabled: false,
+      emergencyRadiusKm: 10,
     };
     const summary = toDonorPublicSummary(profile, 2.4);
     expect(summary).not.toHaveProperty("location");

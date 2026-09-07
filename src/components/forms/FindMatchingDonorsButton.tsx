@@ -27,9 +27,18 @@ export function FindMatchingDonorsButton({
       return;
     }
     setInfo(
-      result.matchCount === 0
-        ? "No matching donors found nearby."
-        : `Found ${result.matchCount} matching donor${result.matchCount === 1 ? "" : "s"}.`
+      [
+        result.matchCount === 0
+          ? "No matching donors found nearby."
+          : `Found ${result.matchCount} matching donor${result.matchCount === 1 ? "" : "s"}.`,
+        result.emergencyNotifiedCount > 0
+          ? `${result.emergencyNotifiedCount} emergency-response donor${
+              result.emergencyNotifiedCount === 1 ? "" : "s"
+            } contacted.`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" ")
     );
     router.refresh();
   }

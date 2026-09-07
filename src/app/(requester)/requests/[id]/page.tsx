@@ -27,7 +27,7 @@ export default async function RequestDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams?: { matched?: string };
+  searchParams?: { matched?: string; emergency?: string };
 }) {
   const user = await requireAuth();
   const request = await bloodRequestService.getById(params.id);
@@ -44,6 +44,11 @@ export default async function RequestDetailPage({
   const justMatchedCount =
     matchedParam != null && matchedParam !== "" && !Number.isNaN(Number(matchedParam))
       ? Number(matchedParam)
+      : null;
+  const emergencyParam = searchParams?.emergency;
+  const justEmergencyCount =
+    emergencyParam != null && emergencyParam !== "" && !Number.isNaN(Number(emergencyParam))
+      ? Number(emergencyParam)
       : null;
 
   let acceptedContact = null;
@@ -63,6 +68,11 @@ export default async function RequestDetailPage({
       <div className="flex flex-wrap items-center gap-2">
         <BloodGroupBadge bloodGroup={request.bloodGroup} />
         <EmergencyBadge urgency={request.urgency} />
+        {request.isEmergency && (
+          <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-800">
+            EMERGENCY RESPONSE
+          </span>
+        )}
         <StatusBadge status={request.status} />
       </div>
 
@@ -144,6 +154,15 @@ export default async function RequestDetailPage({
             {justMatchedCount === 0
               ? "No matching donors found nearby."
               : `Found ${justMatchedCount} matching donor${justMatchedCount === 1 ? "" : "s"}.`}
+          </p>
+        )}
+        {justEmergencyCount != null && request.isEmergency && (
+          <p className="text-sm text-red-800">
+            {justEmergencyCount === 0
+              ? "Emergency request created. No nearby emergency-response donors contacted."
+              : `Emergency request created. ${justEmergencyCount} nearby emergency-response donor${
+                  justEmergencyCount === 1 ? "" : "s"
+                } contacted.`}
           </p>
         )}
         {matchable && (

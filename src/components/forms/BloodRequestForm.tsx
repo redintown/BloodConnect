@@ -43,6 +43,7 @@ export function BloodRequestForm({
   const [contactName, setContactName] = useState(request?.contactName ?? "");
   const [contactPhone, setContactPhone] = useState(request?.contactPhone ?? "");
   const [notes, setNotes] = useState(request?.notes ?? "");
+  const [isEmergency, setIsEmergency] = useState(request?.isEmergency ?? false);
   const [location, setLocation] = useState<Coordinates | null>(request?.location ?? null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export function BloodRequestForm({
       contactName,
       contactPhone,
       notes: notes || null,
+      isEmergency,
     });
 
     if (!parsed.success) {
@@ -175,6 +177,33 @@ export function BloodRequestForm({
         </div>
         {fieldErrors.urgency && <span className="text-sm text-red-600">{fieldErrors.urgency}</span>}
       </fieldset>
+
+      <label
+        className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 ${
+          urgency === "CRITICAL" || isEmergency
+            ? "border-emergency bg-emergency/5"
+            : "border-gray-300"
+        }`}
+      >
+        <input
+          type="checkbox"
+          checked={isEmergency}
+          onChange={(event) => setIsEmergency(event.target.checked)}
+          className="mt-1 h-4 w-4 rounded border-gray-300 text-emergency focus:ring-emergency"
+        />
+        <span>
+          <span className="block text-sm font-semibold text-gray-900">Emergency request</span>
+          <span className="block text-xs text-gray-600">
+            Notify donors who have opted in to emergency response, including donors who may
+            currently be busy.
+          </span>
+          {urgency === "CRITICAL" && !isEmergency && (
+            <span className="mt-1 block text-xs font-medium text-emergency">
+              Critical urgency — consider enabling Emergency Response.
+            </span>
+          )}
+        </span>
+      </label>
 
       <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         Needed by

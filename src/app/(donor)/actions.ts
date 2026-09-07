@@ -6,7 +6,7 @@ import { requireRole } from "@/services/authService";
 import { donorService } from "@/services/donorService";
 import { matchResponseService } from "@/services/matchResponseService";
 import { donorProfileSchema } from "@/schemas/donor.schema";
-import { availabilitySchema } from "@/schemas/availability.schema";
+import { availabilitySchema, emergencySettingsSchema } from "@/schemas/availability.schema";
 
 function actionError(error: unknown): { error: string } {
   if (error instanceof AppError) return { error: error.userMessage };
@@ -45,6 +45,28 @@ export async function saveDonorAvailabilityAction(input: unknown): Promise<{ err
   try {
     const user = await requireRole("DONOR");
     await donorService.setAvailability(user.id, parsed.data.isAvailable, parsed.data.isAvailableAtNight);
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidatePath("/donor");
+  revalidatePath("/donor/availability");
+  return { ok: true };
+}
+
+export async function saveDonorEmergencySettingsAction(
+  input: unknown
+): Promise<{ error: string } | { ok: true }> {
+  const parsed = emergencySettingsSchema.safeParse(input);
+  if (!parsed.success) return { error: "Invalid input" };
+
+  try {
+    const user = await requireRole("DONOR");
+    await donorService.setEmergencySettings(
+      user.id,
+      parsed.data.emergencyResponseEnabled,
+      parsed.data.emergencyRadiusKm
+    );
   } catch (error) {
     return actionError(error);
   }

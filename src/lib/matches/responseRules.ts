@@ -56,11 +56,14 @@ export function selectActionableDonorMatches(matches: DonorInboxMatch[]): DonorI
 }
 
 /**
- * Highest urgency first, then soonest requiredBy, then highest score.
- * Used so a single popup shows the most important request.
+ * Highest urgency first; emergency requests before normal; then soonest requiredBy;
+ * then highest score. Used so a single popup shows the most important request.
  */
 export function sortDonorMatchesByPopupPriority(matches: DonorInboxMatch[]): DonorInboxMatch[] {
   return [...matches].sort((a, b) => {
+    const emergencyDiff = Number(b.request.isEmergency) - Number(a.request.isEmergency);
+    if (emergencyDiff !== 0) return emergencyDiff;
+
     const urgencyDiff = URGENCY_RANK[a.request.urgency] - URGENCY_RANK[b.request.urgency];
     if (urgencyDiff !== 0) return urgencyDiff;
 

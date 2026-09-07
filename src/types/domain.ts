@@ -5,7 +5,7 @@ import type {
   DonorResponseStatus,
   RequestUrgency,
 } from "@/lib/constants/requestStatus";
-import type { VerificationStatus, EscalationLevel, NotificationChannel } from "@/lib/constants/verification";
+import type { VerificationStatus, EscalationLevel, NotificationChannel, NotificationKind } from "@/lib/constants/verification";
 
 /**
  * Hand-written domain types. These are what services, components, and Zod
@@ -39,6 +39,9 @@ export interface DonorProfile {
   location?: Coordinates | null;
   isAvailable: boolean;
   isAvailableAtNight: boolean;
+  /** Independent of isAvailable — Phase 6 Emergency Response opt-in. */
+  emergencyResponseEnabled: boolean;
+  emergencyRadiusKm: number;
 }
 
 export interface DonationRecord {
@@ -70,6 +73,8 @@ export interface DonorInboxMatch {
   score: number | null;
   distanceMeters: number | null;
   respondedAt: string | null;
+  /** Linked IN_APP emergency notification id when present. */
+  emergencyNotificationId?: string | null;
   request: {
     bloodGroup: BloodGroup;
     quantityUnits: number;
@@ -77,6 +82,7 @@ export interface DonorInboxMatch {
     requiredBy: string | null;
     hospitalNameFreeform: string | null;
     status: BloodRequestStatus;
+    isEmergency: boolean;
   };
 }
 
@@ -124,6 +130,8 @@ export interface BloodRequest {
   createdAt: string;
   updatedAt: string;
   expiresAt: string | null;
+  /** Explicit emergency-response flag — not derived from urgency. */
+  isEmergency: boolean;
 }
 
 export interface BloodRequestMatch {
@@ -170,8 +178,11 @@ export interface NotificationRecord {
   id: string;
   recipientId: string;
   bloodRequestId: string | null;
+  matchId?: string | null;
+  kind?: NotificationKind | null;
   channel: NotificationChannel;
   status: "QUEUED" | "SENT" | "DELIVERED" | "FAILED";
+  readAt?: string | null;
   createdAt: string;
 }
 

@@ -14,6 +14,8 @@ export default async function DonorAvailabilityPage() {
         <AvailabilitySelector
           isAvailable={profile.isAvailable}
           isAvailableAtNight={profile.isAvailableAtNight}
+          emergencyResponseEnabled={profile.emergencyResponseEnabled}
+          emergencyRadiusKm={profile.emergencyRadiusKm}
         />
       ) : (
         <p className="text-gray-600">

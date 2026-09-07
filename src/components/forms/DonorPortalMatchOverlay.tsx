@@ -7,8 +7,9 @@ import {
 } from "@/lib/matches/responseRules";
 
 /**
- * Donor-portal-wide overlay. Mounted once from `(donor)/layout.tsx` so the
- * match popup appears on every authenticated donor route — not only /donor.
+ * Donor-portal-wide overlay. Mounted once from `(donor)/layout.tsx` so normal
+ * and emergency match popups appear on every authenticated donor route —
+ * not only /donor or /donor/requests.
  */
 export async function DonorPortalMatchOverlay({ userId }: { userId: string }) {
   let actionableMatches = [] as Awaited<

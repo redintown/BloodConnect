@@ -75,7 +75,7 @@ export const matchResponseService: MatchResponseService = {
     const { data: requests, error: requestError } = await admin
       .from("blood_requests")
       .select(
-        "id, blood_group, quantity_units, urgency, required_by, hospital_name_freeform, status, contact_name, contact_phone"
+        "id, blood_group, quantity_units, urgency, required_by, hospital_name_freeform, status, contact_name, contact_phone, is_emergency"
       )
       .in("id", requestIds);
 
@@ -91,9 +91,30 @@ export const matchResponseService: MatchResponseService = {
       status: BloodRequestStatus;
       contact_name: string;
       contact_phone: string;
+      is_emergency: boolean | null;
     };
 
     const requestMap = new Map(((requests as RequestJoin[] | null) ?? []).map((r) => [r.id, r]));
+
+    const { data: emergencyNotes, error: noteError } = await admin
+      .from("notifications")
+      .select("id, blood_request_id, match_id")
+      .eq("recipient_id", userId)
+      .eq("kind", "EMERGENCY_RESPONSE")
+      .eq("channel", "IN_APP")
+      .in("blood_request_id", requestIds);
+
+    if (noteError) throw AppError.server(noteError);
+
+    const emergencyByMatch = new Map(
+      (
+        (emergencyNotes as
+          | { id: string; blood_request_id: string; match_id: string | null }[]
+          | null) ?? []
+      )
+        .filter((n) => n.match_id)
+        .map((n) => [n.match_id as string, n.id])
+    );
 
     const inbox: DonorInboxMatch[] = [];
     for (const row of rows) {
@@ -107,6 +128,7 @@ export const matchResponseService: MatchResponseService = {
         score: row.score != null ? Number(row.score) : null,
         distanceMeters: row.distance_meters != null ? Number(row.distance_meters) : null,
         respondedAt: row.responded_at,
+        emergencyNotificationId: emergencyByMatch.get(row.id) ?? null,
         request: {
           bloodGroup: request.blood_group,
           quantityUnits: request.quantity_units,
@@ -114,6 +136,7 @@ export const matchResponseService: MatchResponseService = {
           requiredBy: request.required_by,
           hospitalNameFreeform: request.hospital_name_freeform,
           status: request.status,
+          isEmergency: Boolean(request.is_emergency),
         },
       });
     }

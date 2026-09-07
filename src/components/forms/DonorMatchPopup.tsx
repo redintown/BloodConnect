@@ -8,6 +8,7 @@ import {
   declineMatchAction,
   markOnTheWayAction,
 } from "@/app/(donor)/actions";
+import { markNotificationReadAction } from "@/app/(donor)/notificationActions";
 import { BloodGroupBadge } from "@/components/ui/BloodGroupBadge";
 import { EmergencyBadge } from "@/components/ui/EmergencyBadge";
 import { DistanceBadge } from "@/components/ui/DistanceBadge";
@@ -15,19 +16,23 @@ import {
   canMarkDonorOnTheWay,
   sortDonorMatchesByPopupPriority,
 } from "@/lib/matches/responseRules";
+import { BLOOD_GROUP_LABELS } from "@/lib/constants/bloodGroups";
 import type { DonorInboxMatch } from "@/types/domain";
 
 type LocalPhase = "actionable" | "accepted" | "on_the_way";
+type PopupMode = "normal" | "emergency";
 
 /**
  * Presentation-only donor portal overlay. Accept/Decline/On-the-way call the
  * existing Phase 5 server actions — no duplicate acceptance workflow.
+ * mode=emergency is visual + copy only; YES/NO still reuse accept/decline.
  */
 export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
   const router = useRouter();
   const prioritized = useMemo(() => sortDonorMatchesByPopupPriority(matches), [matches]);
   /** After "Maybe later", keep closed for this page mount only (no DB write). */
   const dismissedThisVisit = useRef(false);
+  const markedRead = useRef(new Set<string>());
 
   const [queue, setQueue] = useState(prioritized);
   const [index, setIndex] = useState(0);
@@ -47,18 +52,28 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
     setError(null);
   }, [prioritized, phase]);
 
-  if (!open) return null;
-
   const current =
     phase === "actionable"
       ? queue[Math.min(index, Math.max(queue.length - 1, 0))] ?? null
       : acceptedItem;
 
+  const mode: PopupMode = current?.request.isEmergency ? "emergency" : "normal";
+
+  useEffect(() => {
+    if (!open || !current?.request.isEmergency || !current.emergencyNotificationId) return;
+    const id = current.emergencyNotificationId;
+    if (markedRead.current.has(id)) return;
+    markedRead.current.add(id);
+    void markNotificationReadAction(id);
+  }, [open, current?.emergencyNotificationId, current?.request.isEmergency]);
+
+  if (!open) return null;
   if (!current) return null;
 
   const hasOthers = queue.length > 1;
   const distanceKm =
     current.distanceMeters != null ? current.distanceMeters / 1000 : null;
+  const isEmergency = mode === "emergency";
 
   function dismiss() {
     // Presentation only — does not decline or change match status.
@@ -147,15 +162,22 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="donor-match-popup-title"
+      data-popup-mode={mode}
     >
-      <div className="flex max-h-[90dvh] w-full max-w-lg flex-col overflow-y-auto rounded-2xl border-2 border-emergency bg-white shadow-2xl">
-        <div className="bg-emergency px-5 py-4 text-white">
+      <div
+        className={`flex max-h-[90dvh] w-full max-w-lg flex-col overflow-y-auto rounded-2xl border-2 bg-white shadow-2xl ${
+          isEmergency ? "border-red-700" : "border-emergency"
+        }`}
+      >
+        <div className={`px-5 py-4 text-white ${isEmergency ? "bg-red-800" : "bg-emergency"}`}>
           <p className="text-xs font-semibold uppercase tracking-wide text-white/80">
-            Blood request waiting
+            {isEmergency ? "Emergency blood request" : "Blood request waiting"}
           </p>
           <h2 id="donor-match-popup-title" className="mt-1 text-xl font-bold">
             {phase === "actionable"
-              ? "A nearby patient needs your blood type"
+              ? isEmergency
+                ? `${BLOOD_GROUP_LABELS[current.request.bloodGroup]} blood urgently needed`
+                : "A nearby patient needs your blood type"
               : phase === "accepted"
                 ? "You accepted — next step"
                 : "You are on the way"}
@@ -166,6 +188,11 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
           <div className="flex flex-wrap items-center gap-2">
             <BloodGroupBadge bloodGroup={current.request.bloodGroup} />
             <EmergencyBadge urgency={current.request.urgency} />
+            {isEmergency && (
+              <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-800">
+                EMERGENCY RESPONSE
+              </span>
+            )}
             {phase === "accepted" && (
               <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
                 ACCEPTED
@@ -207,6 +234,7 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
 
           <p className="text-xs text-gray-500">
             Requester contact is shared only after you accept. Exact donor location is never shown.
+            Closing this dialog does not decline the request.
           </p>
 
           {phase === "actionable" && (
@@ -215,9 +243,17 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
                 type="button"
                 onClick={onAccept}
                 disabled={loading !== null}
-                className="w-full rounded-xl bg-emergency px-4 py-3.5 text-base font-bold text-white hover:bg-emergency-hover disabled:opacity-60"
+                className={`w-full rounded-xl px-4 py-3.5 text-base font-bold text-white disabled:opacity-60 ${
+                  isEmergency
+                    ? "bg-red-800 hover:bg-red-900"
+                    : "bg-emergency hover:bg-emergency-hover"
+                }`}
               >
-                {loading === "accept" ? "Accepting…" : "Accept"}
+                {loading === "accept"
+                  ? "Accepting…"
+                  : isEmergency
+                    ? "YES, I CAN HELP"
+                    : "Accept"}
               </button>
               <button
                 type="button"
@@ -225,7 +261,11 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
                 disabled={loading !== null}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
               >
-                {loading === "decline" ? "Declining…" : "Decline"}
+                {loading === "decline"
+                  ? "Declining…"
+                  : isEmergency
+                    ? "NO, I CANNOT"
+                    : "Decline"}
               </button>
               <button
                 type="button"

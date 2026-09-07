@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { availabilitySchema } from "@/schemas/availability.schema";
-import { saveDonorAvailabilityAction } from "@/app/(donor)/actions";
+import { availabilitySchema, emergencySettingsSchema } from "@/schemas/availability.schema";
+import {
+  saveDonorAvailabilityAction,
+  saveDonorEmergencySettingsAction,
+} from "@/app/(donor)/actions";
+import { EMERGENCY_RADIUS_KM_OPTIONS } from "@/lib/matching/emergencyCriteria";
 
 function ToggleRow({
   label,
@@ -40,12 +44,18 @@ function ToggleRow({
 export function AvailabilitySelector({
   isAvailable,
   isAvailableAtNight,
+  emergencyResponseEnabled,
+  emergencyRadiusKm,
 }: {
   isAvailable: boolean;
   isAvailableAtNight: boolean;
+  emergencyResponseEnabled: boolean;
+  emergencyRadiusKm: number;
 }) {
   const [available, setAvailable] = useState(isAvailable);
   const [night, setNight] = useState(isAvailableAtNight && isAvailable);
+  const [emergencyOn, setEmergencyOn] = useState(emergencyResponseEnabled);
+  const [radiusKm, setRadiusKm] = useState(emergencyRadiusKm);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,23 +70,34 @@ export function AvailabilitySelector({
     setError(null);
     setInfo(null);
 
-    const parsed = availabilitySchema.safeParse({
+    const availability = availabilitySchema.safeParse({
       isAvailable: available,
       isAvailableAtNight: night,
     });
-    if (!parsed.success) {
+    const emergency = emergencySettingsSchema.safeParse({
+      emergencyResponseEnabled: emergencyOn,
+      emergencyRadiusKm: radiusKm,
+    });
+    if (!availability.success || !emergency.success) {
       setError("Invalid input");
       return;
     }
 
     setLoading(true);
-    const result = await saveDonorAvailabilityAction(parsed.data);
-    setLoading(false);
-    if ("error" in result) {
-      setError(result.error);
+    const availResult = await saveDonorAvailabilityAction(availability.data);
+    if ("error" in availResult) {
+      setLoading(false);
+      setError(availResult.error);
       return;
     }
-    setInfo("Availability saved.");
+
+    const emergencyResult = await saveDonorEmergencySettingsAction(emergency.data);
+    setLoading(false);
+    if ("error" in emergencyResult) {
+      setError(emergencyResult.error);
+      return;
+    }
+    setInfo("Availability and emergency response settings saved.");
   }
 
   return (
@@ -95,6 +116,37 @@ export function AvailabilitySelector({
         onChange={setNight}
       />
 
+      <div className="mt-2 border-t border-gray-200 pt-4">
+        <h3 className="text-sm font-semibold text-gray-900">Emergency Response</h3>
+        <p className="mt-1 text-xs text-gray-500">
+          When enabled, you may receive urgent blood requests even when your normal availability is
+          off. You always choose whether to accept.
+        </p>
+        <div className="mt-3 flex flex-col gap-3">
+          <ToggleRow
+            label={emergencyOn ? "ON" : "OFF"}
+            description="Independent of normal availability — turning this on does not mark you available."
+            checked={emergencyOn}
+            onChange={setEmergencyOn}
+          />
+          <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+            Emergency radius
+            <select
+              value={radiusKm}
+              onChange={(event) => setRadiusKm(Number(event.target.value))}
+              disabled={!emergencyOn}
+              className="rounded-xl border border-gray-300 px-4 py-3 text-base outline-none focus:border-emergency focus:ring-1 focus:ring-emergency disabled:opacity-50"
+            >
+              {EMERGENCY_RADIUS_KM_OPTIONS.map((km) => (
+                <option key={km} value={km}>
+                  {km} km
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
       {error && (
         <p role="alert" className="text-sm text-red-600">
           {error}
@@ -107,7 +159,7 @@ export function AvailabilitySelector({
         disabled={loading}
         className="rounded-xl bg-emergency px-6 py-3 font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
       >
-        {loading ? "Saving…" : "Save availability"}
+        {loading ? "Saving…" : "Save settings"}
       </button>
     </form>
   );
