@@ -1,0 +1,36 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/client";
+
+interface UseAuthState {
+  user: User | null;
+  loading: boolean;
+}
+
+/**
+ * Thin client-side session reader for UI concerns only (e.g. "show the
+ * login button vs. avatar"). It must NEVER be treated as an authorization
+ * check — every protected mutation is re-checked server-side via
+ * authService.requireRole, since a client hook can always be bypassed.
+ */
+export function useAuth(): UseAuthState {
+  const [state, setState] = useState<UseAuthState>({ user: null, loading: true });
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data }) => {
+      setState({ user: data.user, loading: false });
+    });
+
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState({ user: session?.user ?? null, loading: false });
+    });
+
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  return state;
+}
