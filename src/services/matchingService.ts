@@ -210,13 +210,16 @@ export const matchingService: MatchingService = {
     const admin = createAdminClient();
     const { data: matches, error } = await admin
       .from("blood_request_matches")
-      .select("donor_id, distance_meters, score, status")
+      .select("id, donor_id, distance_meters, score, status")
       .eq("blood_request_id", requestId)
       .order("score", { ascending: false });
 
     if (error) throw AppError.server(error);
 
-    const rows = (matches as { donor_id: string; distance_meters: number | null; score: number | null; status: string }[] | null) ?? [];
+    const rows =
+      (matches as
+        | { id: string; donor_id: string; distance_meters: number | null; score: number | null; status: string }[]
+        | null) ?? [];
     if (rows.length === 0) return [];
 
     const donorIds = rows.map((row) => row.donor_id);
@@ -252,6 +255,8 @@ export const matchingService: MatchingService = {
         isAvailableAtNight: availability?.is_available_at_night ?? false,
         verificationStatus: donor.verification_status,
         distanceKm: row.distance_meters != null ? Number(row.distance_meters) / 1000 : null,
+        matchId: row.id,
+        matchStatus: row.status as DonorPublicSummary["matchStatus"],
       });
     }
 

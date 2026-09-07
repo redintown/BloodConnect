@@ -80,3 +80,21 @@ export const MATCHABLE_REQUEST_STATUSES: readonly BloodRequestStatus[] = [
 export function canRunMatching(status: BloodRequestStatus): boolean {
   return (MATCHABLE_REQUEST_STATUSES as readonly string[]).includes(status);
 }
+
+/** Phase 5 requester may confirm receipt only from DONOR_ON_THE_WAY. */
+export function canRequesterConfirmDonation(status: BloodRequestStatus): boolean {
+  return status === "DONOR_ON_THE_WAY";
+}
+
+/** System Phase 5 transitions (service-role / RPC only). */
+export function canTransitionToDonorAccepted(status: BloodRequestStatus): boolean {
+  return status === "MATCHING";
+}
+
+export function canTransitionToDonorOnTheWay(status: BloodRequestStatus): boolean {
+  return status === "DONOR_ACCEPTED";
+}
+
+export function canTransitionToCompleted(status: BloodRequestStatus): boolean {
+  return status === "DONOR_ON_THE_WAY";
+}

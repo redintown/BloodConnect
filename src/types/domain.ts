@@ -56,6 +56,55 @@ export interface DonorPublicSummary {
   isAvailableAtNight: boolean;
   verificationStatus: VerificationStatus;
   distanceKm: number | null;
+  /** Present on requester match lists after Phase 5 persistence. */
+  matchStatus?: DonorResponseStatus;
+  matchId?: string;
+}
+
+/** Donor inbox row: own match + safe request summary (no requester private geo). */
+export interface DonorInboxMatch {
+  matchId: string;
+  bloodRequestId: string;
+  donorId: string;
+  matchStatus: DonorResponseStatus;
+  score: number | null;
+  distanceMeters: number | null;
+  respondedAt: string | null;
+  request: {
+    bloodGroup: BloodGroup;
+    quantityUnits: number;
+    urgency: RequestUrgency;
+    requiredBy: string | null;
+    hospitalNameFreeform: string | null;
+    status: BloodRequestStatus;
+  };
+}
+
+/**
+ * Controlled contact payload after ACCEPTED.
+ * Never includes donor coordinates.
+ */
+export interface AcceptedMatchContact {
+  matchId: string;
+  bloodRequestId: string;
+  requestStatus: BloodRequestStatus;
+  matchStatus: "ACCEPTED";
+  donor?: {
+    name: string;
+    phone: string | null;
+    bloodGroup: BloodGroup;
+    distanceKm: number | null;
+  };
+  request?: {
+    contactName: string;
+    contactPhone: string;
+    hospitalNameFreeform: string | null;
+    bloodGroup: BloodGroup;
+    quantityUnits: number;
+    urgency: RequestUrgency;
+    requiredBy: string | null;
+    notes: string | null;
+  };
 }
 
 export interface BloodRequest {

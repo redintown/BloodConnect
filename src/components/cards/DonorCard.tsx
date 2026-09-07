@@ -6,7 +6,7 @@ import type { DonorPublicSummary } from "@/types/domain";
 /**
  * Renders only the fields on DonorPublicSummary — the type system itself
  * prevents this component from ever being handed a donor's exact location
- * or contact details before a match is accepted (Phase 5).
+ * or contact details. Contact reveal after accept uses AcceptedMatchContact.
  */
 export function DonorCard({ donor }: { donor: DonorPublicSummary }) {
   return (

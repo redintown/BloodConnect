@@ -9,10 +9,17 @@ import { DonorCard } from "@/components/cards/DonorCard";
 import { BloodRequestForm } from "@/components/forms/BloodRequestForm";
 import { CancelRequestButton } from "@/components/forms/CancelRequestButton";
 import { FindMatchingDonorsButton } from "@/components/forms/FindMatchingDonorsButton";
+import { ConfirmDonationButton } from "@/components/forms/ConfirmDonationButton";
 import { STATUS_LABELS } from "@/lib/constants/requestStatus";
-import { canRequesterCancel, canRequesterEdit, canRunMatching } from "@/lib/requests/statusRules";
+import {
+  canRequesterCancel,
+  canRequesterConfirmDonation,
+  canRequesterEdit,
+  canRunMatching,
+} from "@/lib/requests/statusRules";
 import { bloodRequestService } from "@/services/bloodRequestService";
 import { matchingService } from "@/services/matchingService";
+import { matchResponseService } from "@/services/matchResponseService";
 import { requireAuth } from "@/services/authService";
 
 export default async function RequestDetailPage({ params }: { params: { id: string } }) {
@@ -23,7 +30,21 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
   const editable = canRequesterEdit(request.status);
   const cancellable = canRequesterCancel(request.status);
   const matchable = canRunMatching(request.status);
+  const canConfirm = canRequesterConfirmDonation(request.status);
   const matches = await matchingService.listMatchesForRequester(request.id, user.id);
+  const accepted = matches.find((m) => m.matchStatus === "ACCEPTED");
+
+  let acceptedContact = null;
+  if (accepted?.matchId) {
+    try {
+      acceptedContact = await matchResponseService.getAcceptedMatchContact(
+        accepted.matchId,
+        user.id
+      );
+    } catch {
+      acceptedContact = null;
+    }
+  }
 
   return (
     <PageShell title="Request details">
@@ -79,6 +100,31 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
         </div>
       </dl>
 
+      {acceptedContact?.donor && (
+        <section className="flex flex-col gap-2 rounded-xl border border-green-200 bg-green-50 p-4">
+          <h2 className="text-base font-semibold text-gray-800">Accepted donor contact</h2>
+          <p className="text-sm text-gray-800">
+            <span className="font-medium">{acceptedContact.donor.name}</span>
+            {acceptedContact.donor.phone ? ` · ${acceptedContact.donor.phone}` : ""}
+          </p>
+          <p className="text-xs text-gray-500">
+            Exact donor location is never shared. Coordinate directly using this contact.
+          </p>
+        </section>
+      )}
+
+      {request.status === "DONOR_ACCEPTED" && (
+        <p className="text-sm text-gray-600">
+          A donor accepted. They can mark themselves as on the way next.
+        </p>
+      )}
+
+      {canConfirm && <ConfirmDonationButton requestId={request.id} />}
+
+      {request.status === "COMPLETED" && (
+        <p className="text-sm text-green-700">This request is completed. Donation recorded.</p>
+      )}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold text-gray-800">Matching donors</h2>
         {matchable && <FindMatchingDonorsButton requestId={request.id} />}
@@ -95,12 +141,18 @@ export default async function RequestDetailPage({ params }: { params: { id: stri
         ) : (
           <div className="flex flex-col gap-2">
             {matches.map((donor) => (
-              <DonorCard key={donor.id} donor={donor} />
+              <div key={donor.matchId ?? donor.id} className="flex flex-col gap-1">
+                <DonorCard donor={donor} />
+                {donor.matchStatus && (
+                  <p className="px-1 text-xs text-gray-500">Match status: {donor.matchStatus}</p>
+                )}
+              </div>
             ))}
           </div>
         )}
         <p className="text-xs text-gray-400">
-          Distances are approximate. Exact donor locations are never shown. Contacting donors is a later phase.
+          Distances are approximate. Exact donor locations are never shown. Contact details appear
+          only after a donor accepts.
         </p>
       </section>
 

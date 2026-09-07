@@ -15,6 +15,7 @@ import {
   initialRequestStatus,
   isOverdueForExpiry,
 } from "@/lib/requests/statusRules";
+import { mapDonorResponseRpcError } from "@/lib/matches/responseRules";
 import type { BloodGroup } from "@/lib/constants/bloodGroups";
 import type { BloodRequestStatus, RequestUrgency } from "@/lib/constants/requestStatus";
 import type { BloodRequest, Coordinates } from "@/types/domain";
@@ -62,6 +63,18 @@ export interface BloodRequestService {
   markMatching(requestId: string): Promise<void>;
   /** System transition: PENDING | MATCHING → NO_MATCH_FOUND. */
   markNoMatchFound(requestId: string): Promise<void>;
+  /**
+   * Atomic Phase 5 accept: MATCHING → DONOR_ACCEPTED, match ACCEPTED,
+   * competing open matches EXPIRED. Service-role RPC only.
+   */
+  markDonorAccepted(matchId: string, donorUserId: string): Promise<void>;
+  /** Atomic Phase 5: DONOR_ACCEPTED → DONOR_ON_THE_WAY for the accepted donor. */
+  markDonorOnTheWay(matchId: string, donorUserId: string): Promise<void>;
+  /**
+   * Atomic Phase 5 completion: DONOR_ON_THE_WAY → COMPLETED + donation write
+   * + donor last_donation_date update. Requester-owned.
+   */
+  markCompleted(requestId: string, requesterId: string): Promise<string>;
 }
 
 async function assertActingRequester(requesterId: string) {
@@ -350,5 +363,37 @@ export const bloodRequestService: BloodRequestService = {
       .in("status", ["PENDING", "MATCHING"]);
 
     if (updateError) throw AppError.server(updateError);
+  },
+
+  async markDonorAccepted(matchId, donorUserId) {
+    const admin = createAdminClient();
+    const { error } = await admin.rpc("accept_blood_request_match", {
+      p_match_id: matchId,
+      p_donor_user_id: donorUserId,
+    });
+    if (error) throw mapDonorResponseRpcError(error);
+  },
+
+  async markDonorOnTheWay(matchId, donorUserId) {
+    const admin = createAdminClient();
+    const { error } = await admin.rpc("mark_donor_on_the_way", {
+      p_match_id: matchId,
+      p_donor_user_id: donorUserId,
+    });
+    if (error) throw mapDonorResponseRpcError(error);
+  },
+
+  async markCompleted(requestId, requesterId) {
+    await assertActingRequester(requesterId);
+
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("confirm_donation_received", {
+      p_request_id: requestId,
+      p_requester_id: requesterId,
+    });
+
+    if (error) throw mapDonorResponseRpcError(error);
+    if (!data) throw AppError.server(new Error("Missing donation id from confirm RPC"));
+    return typeof data === "string" ? data : String(data);
   },
 };

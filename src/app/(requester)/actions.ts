@@ -82,3 +82,19 @@ export async function findMatchingDonorsAction(
     return actionError(error);
   }
 }
+
+export async function confirmDonationReceivedAction(
+  requestId: string
+): Promise<{ error: string } | { ok: true }> {
+  try {
+    const user = await requireAuth();
+    await bloodRequestService.markCompleted(requestId, user.id);
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidateRequesterPaths(requestId);
+  revalidatePath("/donor/history");
+  revalidatePath("/donor/requests");
+  return { ok: true };
+}
