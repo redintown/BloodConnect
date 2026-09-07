@@ -13,6 +13,7 @@ export const BLOOD_REQUEST_STATUSES = [
 export type BloodRequestStatus = (typeof BLOOD_REQUEST_STATUSES)[number];
 
 export const DONOR_RESPONSE_STATUSES = [
+  "MATCHED",
   "NOTIFIED",
   "VIEWED",
   "ACCEPTED",

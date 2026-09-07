@@ -25,8 +25,8 @@ import type { BloodRequest, Coordinates } from "@/types/domain";
  * place allowed to write a new status, so transition rules stay in one
  * spot instead of being re-implemented per UI action.
  *
- * Matching, notifications, and match-table writes are intentionally
- * out of scope for Phase 3.
+ * Match-table writes are owned by the matching module; this service still owns
+ * all blood_requests status transitions (including MATCHING / NO_MATCH_FOUND).
  */
 
 interface BloodRequestRow {
@@ -58,6 +58,10 @@ export interface BloodRequestService {
   listForRequester(requesterId: string): Promise<BloodRequest[]>;
   /** Called by a trusted server context, not by end-user status updates. */
   expireOverdue(): Promise<number>;
+  /** System transition: PENDING → MATCHING (also allowed when already MATCHING / from NO_MATCH_FOUND). */
+  markMatching(requestId: string): Promise<void>;
+  /** System transition: PENDING | MATCHING → NO_MATCH_FOUND. */
+  markNoMatchFound(requestId: string): Promise<void>;
 }
 
 async function assertActingRequester(requesterId: string) {
@@ -294,5 +298,57 @@ export const bloodRequestService: BloodRequestService = {
 
     if (updateError) throw AppError.server(updateError);
     return overdueIds.length;
+  },
+
+  async markMatching(requestId) {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("blood_requests")
+      .select("id, status")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (error) throw AppError.server(error);
+    if (!data) throw AppError.notFound("Request not found.");
+
+    const status = (data as { status: BloodRequestStatus }).status;
+    if (status === "MATCHING") return;
+    if (status !== "PENDING" && status !== "NO_MATCH_FOUND") {
+      throw AppError.conflict("This request cannot enter MATCHING.");
+    }
+
+    const { error: updateError } = await admin
+      .from("blood_requests")
+      .update({ status: "MATCHING" })
+      .eq("id", requestId)
+      .in("status", ["PENDING", "NO_MATCH_FOUND"]);
+
+    if (updateError) throw AppError.server(updateError);
+  },
+
+  async markNoMatchFound(requestId) {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from("blood_requests")
+      .select("id, status")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (error) throw AppError.server(error);
+    if (!data) throw AppError.notFound("Request not found.");
+
+    const status = (data as { status: BloodRequestStatus }).status;
+    if (status === "NO_MATCH_FOUND") return;
+    if (status !== "PENDING" && status !== "MATCHING") {
+      throw AppError.conflict("This request cannot enter NO_MATCH_FOUND.");
+    }
+
+    const { error: updateError } = await admin
+      .from("blood_requests")
+      .update({ status: "NO_MATCH_FOUND" })
+      .eq("id", requestId)
+      .in("status", ["PENDING", "MATCHING"]);
+
+    if (updateError) throw AppError.server(updateError);
   },
 };

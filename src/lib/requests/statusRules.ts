@@ -69,3 +69,14 @@ export function isOverdueForExpiry(
 export function initialRequestStatus(): BloodRequestStatus {
   return "PENDING";
 }
+
+/** Statuses on which the requester may run Phase 4 matching. */
+export const MATCHABLE_REQUEST_STATUSES: readonly BloodRequestStatus[] = [
+  "PENDING",
+  "MATCHING",
+  "NO_MATCH_FOUND",
+];
+
+export function canRunMatching(status: BloodRequestStatus): boolean {
+  return (MATCHABLE_REQUEST_STATUSES as readonly string[]).includes(status);
+}

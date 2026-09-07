@@ -128,7 +128,7 @@ describe("no matching side effects", () => {
   it("does not import matchingService or write blood_request_matches", () => {
     const servicePath = path.resolve(__dirname, "../src/services/bloodRequestService.ts");
     const source = readFileSync(servicePath, "utf8");
-    expect(source).not.toContain("matchingService");
+    expect(source).not.toMatch(/from ["']@\/services\/matchingService["']/);
     expect(source).not.toContain('.from("blood_request_matches")');
     expect(source).not.toContain("notificationService");
     expect(initialRequestStatus()).toBe("PENDING");

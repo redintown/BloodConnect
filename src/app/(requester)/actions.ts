@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { AppError } from "@/lib/errors/AppError";
 import { requireAuth } from "@/services/authService";
 import { bloodRequestService } from "@/services/bloodRequestService";
+import { matchingService } from "@/services/matchingService";
 import { createBloodRequestSchema } from "@/schemas/bloodRequest.schema";
 
 function actionError(error: unknown): { error: string } {
@@ -67,4 +68,17 @@ export async function cancelBloodRequestAction(
 
   revalidateRequesterPaths(requestId);
   return { ok: true };
+}
+
+export async function findMatchingDonorsAction(
+  requestId: string
+): Promise<{ error: string } | { ok: true; matchCount: number }> {
+  try {
+    const user = await requireAuth();
+    const matches = await matchingService.runMatchingForRequest(requestId, user.id);
+    revalidateRequesterPaths(requestId);
+    return { ok: true, matchCount: matches.length };
+  } catch (error) {
+    return actionError(error);
+  }
 }
