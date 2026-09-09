@@ -5,7 +5,7 @@ export const bloodBankProfileSchema = z
   .object({
     name: z.string().trim().min(2).max(200),
     address: z.string().trim().min(5).max(300),
-    location: coordinatesSchema.optional().nullable(),
+    location: coordinatesSchema,
     emergencyHours: z.string().trim().max(200).optional().nullable(),
   })
   .merge(contactInfoSchema.pick({ contactPhone: true }));

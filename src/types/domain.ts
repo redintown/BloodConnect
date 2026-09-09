@@ -153,6 +153,8 @@ export interface Hospital {
   location: Coordinates | null;
   has24hEmergency: boolean;
   verificationStatus: VerificationStatus;
+  /** Owner-visible only; never expose admin identity. */
+  rejectionReason: string | null;
 }
 
 export interface BloodBank {
@@ -163,6 +165,8 @@ export interface BloodBank {
   location: Coordinates | null;
   emergencyHours: string | null;
   verificationStatus: VerificationStatus;
+  /** Owner-visible only; never expose admin identity. */
+  rejectionReason: string | null;
 }
 
 export interface BloodInventoryItem {

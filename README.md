@@ -116,8 +116,8 @@ tests/            a small set of representative unit tests
 * \[x] Phase 5 — Contact + donor response
 * \[x] Phase 6 — Notifications
 * \[x] Phase 7 — Emergency escalation (hospitals / blood banks / admin)
-* \[ ] Phase 8 — Hospital + blood bank profiles + inventory
-* \[ ] Phase 9 — Admin
+* \[ ] Phase 8 — Hospital + blood bank profiles + inventory *(8A: org profile + verification done)*
+* \[ ] Phase 9 — Admin *(donor verification + broader admin tools)*
 * \[ ] Phase 10 — Production hardening
 
 ### Phase notes
@@ -125,4 +125,5 @@ tests/            a small set of representative unit tests
 * **Phase 4** — normal donor matching.
 * **Phase 6** — Emergency Response (donor opt-in / YES·NO); not escalation.
 * **Phase 7** — escalate unresolved *emergency* requests to verified nearby hospitals/blood banks, then admin. Cron: `POST /api/cron/escalate` with `CRON_SECRET`.
-* **Phase 8** — full hospital/blood-bank product and inventory management.
+* **Phase 8** — hospital/blood-bank product. **8A** = profile + ownership/RLS + admin org verification. **8B+** = inventory / escalation inventory hints / public availability.
+* **Phase 9** — donor verification and broader admin tooling (not organization verification).
