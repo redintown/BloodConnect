@@ -105,6 +105,7 @@ tests/            a small set of representative unit tests
 * A donor's exact coordinates are never sent to another user. Public-facing reads go through `donor\_public\_view` / `DonorPublicSummary`, which omit location entirely; only a computed distance is exposed.
 * The service-role key never reaches the browser bundle (`createAdminClient` throws if called client-side).
 
+
 ## MVP roadmap
 
 * \[x] Phase 0 — Foundation / skeleton
