@@ -14,6 +14,7 @@ import {
   INITIAL_MATCH_STATUS,
   selectRankedCandidates,
 } from "@/lib/matching/ranking";
+import { toCoarseDistanceBandKm } from "@/lib/matching/distancePrivacy";
 import { assertOwnsRequest, canRunMatching } from "@/lib/requests/statusRules";
 import type { BloodGroup } from "@/lib/constants/bloodGroups";
 import type { VerificationStatus } from "@/lib/constants/verification";
@@ -75,7 +76,8 @@ function toPublicSummary(
     isAvailable: candidate.isAvailable,
     isAvailableAtNight: candidate.isAvailableAtNight,
     verificationStatus: candidate.verificationStatus,
-    distanceKm: distanceMeters / 1000,
+    // Coarse band only — exact meters used for ranking stay server-side.
+    distanceKm: toCoarseDistanceBandKm(distanceMeters),
   };
 }
 
@@ -254,7 +256,8 @@ export const matchingService: MatchingService = {
         isAvailable: availability?.is_available ?? false,
         isAvailableAtNight: availability?.is_available_at_night ?? false,
         verificationStatus: donor.verification_status,
-        distanceKm: row.distance_meters != null ? Number(row.distance_meters) / 1000 : null,
+        distanceKm:
+          row.distance_meters != null ? toCoarseDistanceBandKm(Number(row.distance_meters)) : null,
         matchId: row.id,
         matchStatus: row.status as DonorPublicSummary["matchStatus"],
       });

@@ -115,7 +115,9 @@ export async function assignInitialRole(userId: string, role: unknown): Promise<
     throw AppError.unauthorized("Unauthorized");
   }
 
-  const assigned = (await insertRole(createClient(), userId, role)) || (await tryAdminInsertRole(userId, role));
+  // Phase 10A: clients cannot INSERT into user_roles (RLS). Use service-role only.
+  // Primary bootstrap remains handle_new_user() DEFINER trigger on signup.
+  const assigned = await tryAdminInsertRole(userId, role);
   if (assigned) return;
 
   const roles = await getCurrentUserRoles();
@@ -124,54 +126,11 @@ export async function assignInitialRole(userId: string, role: unknown): Promise<
   throw AppError.server();
 }
 
-/** TEMP diagnostic — remove after registration debug. Never logs secrets. */
-function logRegisterDiag(step: string, detail?: Record<string, unknown>) {
-  console.error("[register-diag]", step, detail ?? {});
-}
-
-function summarizeCaughtError(error: unknown): Record<string, unknown> {
-  if (error instanceof AppError) {
-    const cause = error.cause;
-    const causeObj =
-      typeof cause === "object" && cause !== null ? (cause as Record<string, unknown>) : null;
-    return {
-      name: error.name,
-      message: error.message,
-      code: error.code,
-      status: error.status,
-      causeName: causeObj && typeof causeObj.name === "string" ? causeObj.name : undefined,
-      causeMessage: causeObj && typeof causeObj.message === "string" ? causeObj.message : undefined,
-      causeCode: causeObj && typeof causeObj.code === "string" ? causeObj.code : undefined,
-      causeStatus: causeObj && typeof causeObj.status === "number" ? causeObj.status : undefined,
-      causeDetails: causeObj && typeof causeObj.details === "string" ? causeObj.details : undefined,
-      causeHint: causeObj && typeof causeObj.hint === "string" ? causeObj.hint : undefined,
-    };
-  }
-  if (typeof error === "object" && error !== null) {
-    const err = error as Record<string, unknown>;
-    return {
-      name: typeof err.name === "string" ? err.name : undefined,
-      message: typeof err.message === "string" ? err.message : undefined,
-      code: typeof err.code === "string" ? err.code : undefined,
-      details: typeof err.details === "string" ? err.details : undefined,
-      hint: typeof err.hint === "string" ? err.hint : undefined,
-      status: typeof err.status === "number" ? err.status : undefined,
-    };
-  }
-  return { message: String(error) };
-}
-
 async function bootstrapAccount(user: User, initialRole?: unknown): Promise<void> {
-  logRegisterDiag("profile creation started", { userId: user.id });
   await ensureProfile(user);
-  logRegisterDiag("profile creation result", { userId: user.id, ok: true });
 
-  logRegisterDiag("role bootstrap started", { userId: user.id });
   const roles = await getCurrentUserRoles();
-  if (roles.length > 0) {
-    logRegisterDiag("role bootstrap result", { userId: user.id, roles, skippedAssign: true });
-    return;
-  }
+  if (roles.length > 0) return;
 
   const hint =
     initialRole ??
@@ -179,18 +138,7 @@ async function bootstrapAccount(user: User, initialRole?: unknown): Promise<void
 
   if (isSelfAssignableRole(hint)) {
     await assignInitialRole(user.id, hint);
-    const after = await getCurrentUserRoles();
-    logRegisterDiag("role bootstrap result", { userId: user.id, roles: after, assigned: hint });
-  } else {
-    logRegisterDiag("role bootstrap result", { userId: user.id, roles, assigned: null });
   }
-
-  // Registration does not create donor_profiles; that happens later on the donor profile page.
-  logRegisterDiag("donor profile/bootstrap", {
-    userId: user.id,
-    skipped: true,
-    reason: "not part of auth registration; donor_profiles created later",
-  });
 }
 
 export async function registerUser(input: RegisterInput) {
@@ -201,10 +149,8 @@ export async function registerUser(input: RegisterInput) {
   if (!isSelfAssignableRole(parsed.data.initialRole)) {
     throw AppError.unauthorized("Unauthorized");
   }
-  logRegisterDiag("registerUser validation passed", { initialRole: parsed.data.initialRole });
 
   const supabase = createClient();
-  logRegisterDiag("signUp started", { initialRole: parsed.data.initialRole });
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
@@ -217,40 +163,18 @@ export async function registerUser(input: RegisterInput) {
     },
   });
 
-  if (error) {
-    logRegisterDiag("signUp result", {
-      ok: false,
-      ...summarizeCaughtError(error),
-    });
-    throw mapAuthError(error);
-  }
-  if (!data.user) {
-    logRegisterDiag("signUp result", { ok: false, reason: "no user returned" });
-    throw AppError.server();
-  }
-
-  logRegisterDiag("signUp result", {
-    ok: true,
-    userId: data.user.id,
-    hasSession: Boolean(data.session),
-    identitiesCount: Array.isArray(data.user.identities) ? data.user.identities.length : null,
-  });
+  if (error) throw mapAuthError(error);
+  if (!data.user) throw AppError.server();
 
   // Confirm-email projects: duplicate emails return a fake user (empty
   // identities) instead of an error. Do not treat that as a new signup.
   if (isObfuscatedDuplicateSignUp(data.user)) {
-    logRegisterDiag("signUp obfuscated duplicate detected", { userId: data.user.id });
     throw AppError.conflict("Email already registered");
   }
 
   try {
     await bootstrapAccount(data.user, parsed.data.initialRole);
   } catch (cause) {
-    logRegisterDiag("bootstrapAccount caught error", {
-      userId: data.user.id,
-      hasSession: Boolean(data.session),
-      ...summarizeCaughtError(cause),
-    });
     // Auth user exists; profile/role retries happen on next login via
     // bootstrapAccount. Don't leak setup details.
     if (data.session) {

@@ -49,7 +49,7 @@ function inboxMatch(
     donorId: "donor-1",
     matchStatus: "NOTIFIED",
     score: overrides.score ?? 10,
-    distanceMeters: 1500,
+    distanceBandKm: 2,
     respondedAt: null,
     request: {
       bloodGroup: "O_NEG",

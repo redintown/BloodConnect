@@ -102,8 +102,9 @@ tests/            a small set of representative unit tests
 
 * Row Level Security is enabled on every table; the anon/browser client can only see what a policy explicitly allows.
 * Server-side role checks (`authService.requireRole`) are the real authorization boundary — client-side role checks are UX only, never trusted.
-* A donor's exact coordinates are never sent to another user. Public-facing reads go through `donor\_public\_view` / `DonorPublicSummary`, which omit location entirely; only a computed distance is exposed.
+* A donor's exact coordinates are never sent to another user. Public-facing reads go through `donor\_public\_view` / `DonorPublicSummary`, which omit location entirely; client-facing distance is a coarse band only (Phase 10A).
 * The service-role key never reaches the browser bundle (`createAdminClient` throws if called client-side).
+* Public `/find-blood` stays unauthenticated; `search_public_blood_availability` is not executable by anon/authenticated after migration 0014 (Server Action + service-role only).
 
 
 ## MVP roadmap
@@ -118,7 +119,8 @@ tests/            a small set of representative unit tests
 * \[x] Phase 7 — Emergency escalation (hospitals / blood banks / admin)
 * \[x] Phase 8 — Hospital + blood bank profiles + inventory *(8A–8D complete)*
 * \[x] Phase 9 — Admin *(donor verification + broader admin tools)*
-* \[ ] Phase 10 — Production hardening
+* \[x] Phase 10A — Security hardening *(app + migration 0014; apply 0014 to live DB)*
+* \[ ] Phase 10B+ — Remaining production hardening
 
 ### Phase notes
 
@@ -135,3 +137,4 @@ tests/            a small set of representative unit tests
   * Sensitive re-verification: when a `VERIFIED` donor changes `blood_group` or `location`, they reset to `PENDING`.
   * Matching integration: only `REJECTED` donors are excluded; `UNVERIFIED`/`PENDING` remain match candidates as in Phase 4/6.
   * Privacy: public donor reads never expose coordinates or verification/rejection metadata.
+* **Phase 10A** — security hardening: role self-insert removed, org RPC role checks, coarse donor distance, public-search EXECUTE service_role-only, donation ownership via `donor_profiles.user_id`, org verification_notes lock, verify/reject rowcount, remove register-diag + rate-limit mapping.

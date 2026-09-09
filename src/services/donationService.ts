@@ -68,7 +68,18 @@ export const donationService: DonationService = {
     if (!request) throw AppError.notFound("Request not found.");
 
     const requesterId = (request as { requester_id: string }).requester_id;
-    const isDonor = user.id === donorId;
+
+    // donorId is donor_profiles.id — resolve user_id before ownership compare.
+    const { data: donorProfile, error: donorError } = await admin
+      .from("donor_profiles")
+      .select("id, user_id")
+      .eq("id", donorId)
+      .maybeSingle();
+    if (donorError) throw AppError.server(donorError);
+    if (!donorProfile) throw AppError.notFound("Donor not found.");
+
+    const donorUserId = (donorProfile as { id: string; user_id: string }).user_id;
+    const isDonor = user.id === donorUserId;
     const isRequester = user.id === requesterId;
     if (!isDonor && !isRequester) {
       throw AppError.unauthorized("Unauthorized");

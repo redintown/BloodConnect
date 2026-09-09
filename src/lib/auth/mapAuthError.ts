@@ -6,6 +6,12 @@ function readField(error: unknown, key: string): string {
   return typeof value === "string" ? value.toLowerCase() : "";
 }
 
+function readStatus(error: unknown): number | null {
+  if (typeof error !== "object" || error === null || !("status" in error)) return null;
+  const value = (error as Record<string, unknown>).status;
+  return typeof value === "number" ? value : null;
+}
+
 /**
  * Maps Supabase/Auth failures onto safe AppError messages. Never returns
  * the original provider/database text — that can leak internals.
@@ -15,6 +21,7 @@ export function mapAuthError(error: unknown): AppError {
 
   const code = readField(error, "code");
   const message = readField(error, "message");
+  const status = readStatus(error);
   const combined = `${code} ${message}`;
 
   if (
@@ -37,6 +44,15 @@ export function mapAuthError(error: unknown): AppError {
 
   if (combined.includes("email not confirmed") || combined.includes("email_not_confirmed")) {
     return AppError.unauthenticated("Please confirm your email before signing in.");
+  }
+
+  if (
+    code === "over_email_send_rate_limit" ||
+    status === 429 ||
+    combined.includes("rate limit") ||
+    combined.includes("too many requests")
+  ) {
+    return AppError.rateLimited("Too many attempts. Please try again shortly.");
   }
 
   if (

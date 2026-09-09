@@ -32,7 +32,7 @@ function inboxMatch(
     donorId?: string;
     matchStatus?: DonorInboxMatch["matchStatus"];
     score?: number | null;
-    distanceMeters?: number | null;
+    distanceBandKm?: number | null;
     respondedAt?: string | null;
     request?: Partial<DonorInboxMatch["request"]>;
   } = {}
@@ -43,7 +43,7 @@ function inboxMatch(
     donorId: overrides.donorId ?? "donor-1",
     matchStatus: overrides.matchStatus ?? "MATCHED",
     score: overrides.score ?? 10,
-    distanceMeters: overrides.distanceMeters ?? 1500,
+    distanceBandKm: overrides.distanceBandKm ?? 2,
     respondedAt: overrides.respondedAt ?? null,
     request: {
       bloodGroup: "O_NEG",

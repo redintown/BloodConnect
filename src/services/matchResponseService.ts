@@ -4,6 +4,7 @@ import { requireAuth, requireRole } from "@/services/authService";
 import { createAdminClient } from "@/lib/supabase/server";
 import { bloodRequestService } from "@/services/bloodRequestService";
 import { mapDonorResponseRpcError } from "@/lib/matches/responseRules";
+import { toCoarseDistanceBandKm } from "@/lib/matching/distancePrivacy";
 import type { BloodGroup } from "@/lib/constants/bloodGroups";
 import type {
   BloodRequestStatus,
@@ -126,7 +127,8 @@ export const matchResponseService: MatchResponseService = {
         donorId: row.donor_id,
         matchStatus: row.status,
         score: row.score != null ? Number(row.score) : null,
-        distanceMeters: row.distance_meters != null ? Number(row.distance_meters) : null,
+        distanceBandKm:
+          row.distance_meters != null ? toCoarseDistanceBandKm(Number(row.distance_meters)) : null,
         respondedAt: row.responded_at,
         emergencyNotificationId: emergencyByMatch.get(row.id) ?? null,
         request: {
@@ -282,7 +284,9 @@ export const matchResponseService: MatchResponseService = {
         phone: profileRow?.phone ?? null,
         bloodGroup: donorRow.blood_group,
         distanceKm:
-          matchRow.distance_meters != null ? Number(matchRow.distance_meters) / 1000 : null,
+          matchRow.distance_meters != null
+            ? toCoarseDistanceBandKm(Number(matchRow.distance_meters))
+            : null,
       };
     }
 

@@ -111,6 +111,7 @@ describe("Phase 8D service and UI privacy surface", () => {
       "utf8"
     );
     expect(source).toContain("search_public_blood_availability");
+    expect(source).toContain("createAdminClient");
     expect(source).toContain("toSafeResult");
     expect(source).toContain("units_available");
     expect(source).toContain("return null");

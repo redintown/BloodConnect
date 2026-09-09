@@ -73,11 +73,7 @@ export function DonorMatchActions({ item }: { item: DonorInboxMatch }) {
         <div className="flex justify-between gap-4">
           <dt className="text-gray-500">Distance</dt>
           <dd>
-            <DistanceBadge
-              distanceKm={
-                item.distanceMeters != null ? item.distanceMeters / 1000 : null
-              }
-            />
+            <DistanceBadge distanceKm={item.distanceBandKm} />
           </dd>
         </div>
         <div className="flex justify-between gap-4">

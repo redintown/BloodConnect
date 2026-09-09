@@ -120,6 +120,12 @@ describe("mapAuthError", () => {
   it("maps session expiry and unknown failures", () => {
     expect(mapAuthError({ message: "session expired" }).userMessage).toBe("Session expired");
     expect(mapAuthError({ message: "invalid jwt" }).userMessage).toBe("Session expired");
+    expect(mapAuthError({ code: "over_email_send_rate_limit", status: 429 }).code).toBe(
+      "RATE_LIMITED"
+    );
+    expect(mapAuthError({ message: "rate limit exceeded", status: 429 }).userMessage).toContain(
+      "Too many attempts"
+    );
     const unknown = mapAuthError(new Error("raw SQL: relation does not exist"));
     expect(unknown.userMessage).toBe("Something went wrong. Please try again.");
     expect(unknown.userMessage).not.toContain("SQL");

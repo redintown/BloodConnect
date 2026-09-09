@@ -60,6 +60,10 @@ export interface DonorPublicSummary {
   isAvailable: boolean;
   isAvailableAtNight: boolean;
   verificationStatus: VerificationStatus;
+  /**
+   * Coarse distance band in km for client display (Phase 10A).
+   * Never meter-level precision. Exact meters stay server-internal.
+   */
   distanceKm: number | null;
   /** Present on requester match lists after Phase 5 persistence. */
   matchStatus?: DonorResponseStatus;
@@ -73,7 +77,8 @@ export interface DonorInboxMatch {
   donorId: string;
   matchStatus: DonorResponseStatus;
   score: number | null;
-  distanceMeters: number | null;
+  /** Coarse distance band (km). Exact meters are not exposed to clients. */
+  distanceBandKm: number | null;
   respondedAt: string | null;
   /** Linked IN_APP emergency notification id when present. */
   emergencyNotificationId?: string | null;

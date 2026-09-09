@@ -103,6 +103,16 @@ Privacy:
 
 - Public donor reads use `donor_public_view` / `DonorPublicSummary`, which omit coordinates and never expose
   verification metadata or rejection reasons.
+- Phase 10A: client-facing donor distance is coarse bands (`distanceBandKm` / coarse `distanceKm`), never meter precision.
+
+## Phase 10A — Security hardening
+
+Additive migration `0014_phase10a_security_hardening.sql` (must be applied to live Supabase separately):
+
+- Drop client `user_roles` self-insert; bootstrap remains `handle_new_user` + service-role `assignInitialRole`.
+- Org create/update/submit/location RPCs require matching `HOSPITAL` / `BLOOD_BANK` role.
+- Public search RPC EXECUTE is `service_role` only; `/find-blood` stays public via Server Action → `createAdminClient()`.
+- Org before-write triggers lock `verification_notes` (parity with donors).
 
 ## Service boundaries
 
@@ -118,7 +128,7 @@ only code allowed to query them directly:
 | `notificationService` | `notifications` | One adapter per channel behind a common interface |
 | `hospitalService` / `bloodBankService` | `hospitals` / `blood_banks` | Phase 8A: session-bound profile CRUD |
 | `inventoryService` | `blood_inventory` (+ audit via RPC) | Phase 8B: owner atomic adjust; no public search |
-| `bloodAvailabilityService` | public search via safe DEFINER RPC | Phase 8D: exact group, VERIFIED, stock > 0; no units/coords |
+| `bloodAvailabilityService` | public search via safe DEFINER RPC | Phase 8D/10A: service-role RPC only; exact group, VERIFIED, stock > 0; no units/coords |
 | `verificationService` | org + donor verification rules + admin verify/reject | Org verification is Phase 8A; donor verification is Phase 9 |
 | `adminService` | cross-cutting admin actions | Always writes an `audit_logs` row |
 | `locationService` | geo math | Only module that knows PostGIS query shapes |

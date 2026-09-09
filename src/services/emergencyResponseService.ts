@@ -13,6 +13,7 @@ import {
 import { canRefreshMatchRow, INITIAL_MATCH_STATUS } from "@/lib/matching/ranking";
 import { assertOwnsRequest } from "@/lib/requests/statusRules";
 import { BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constants/bloodGroups";
+import { toCoarseDistanceBandKm } from "@/lib/matching/distancePrivacy";
 import type { VerificationStatus } from "@/lib/constants/verification";
 import type { BloodRequest } from "@/types/domain";
 
@@ -71,7 +72,7 @@ function safeEmergencyPayload(request: BloodRequest, distanceMeters: number) {
     urgency: request.urgency,
     hospitalName: request.hospitalNameFreeform,
     requiredBy: request.requiredBy,
-    approximateDistanceKm: Math.round((distanceMeters / 1000) * 10) / 10,
+    approximateDistanceKm: toCoarseDistanceBandKm(distanceMeters),
     isEmergency: true,
   };
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import { AppError } from "@/lib/errors/AppError";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import {
   publicBloodSearchSchema,
   type PublicBloodSearchInput,
@@ -126,7 +126,8 @@ export const bloodAvailabilityService: BloodAvailabilityService = {
     const parsed = publicBloodSearchSchema.safeParse(input);
     if (!parsed.success) throw AppError.validation("Invalid input");
 
-    const supabase = createClient();
+    // Phase 10A: RPC is service_role-only; public UI still uses Server Action (no login).
+    const supabase = createAdminClient();
     const { data, error } = await supabase.rpc("search_public_blood_availability", {
       p_blood_group: parsed.data.bloodGroup as BloodGroup,
       p_lat: parsed.data.latitude,

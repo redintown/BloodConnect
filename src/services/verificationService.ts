@@ -274,7 +274,7 @@ export const verificationService: VerificationService = {
       throw AppError.conflict("Only pending donors can be verified.");
     }
 
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("donor_profiles")
       .update({
         verification_status: "VERIFIED",
@@ -284,14 +284,21 @@ export const verificationService: VerificationService = {
         verification_notes: null,
       })
       .eq("id", row.id)
-      .eq("verification_status", "PENDING");
+      .eq("verification_status", "PENDING")
+      .select("id, user_id")
+      .maybeSingle();
     if (error) throw AppError.server(error);
+    if (!updated) {
+      throw AppError.conflict("Only pending donors can be verified.");
+    }
+
+    const updatedRow = updated as { id: string; user_id: string };
 
     await admin.from("audit_logs").insert({
       actor_id: adminUser.id,
       action: "DONOR_VERIFICATION_VERIFIED",
       entity_type: "donor_profiles",
-      entity_id: row.id,
+      entity_id: updatedRow.id,
       metadata: {
         oldStatus: "PENDING",
         newStatus: "VERIFIED",
@@ -299,7 +306,7 @@ export const verificationService: VerificationService = {
     });
 
     await notifyDonor({
-      recipientId: row.user_id,
+      recipientId: updatedRow.user_id,
       result: "VERIFIED",
     });
   },
@@ -323,7 +330,7 @@ export const verificationService: VerificationService = {
       throw AppError.conflict("Only pending donors can be rejected.");
     }
 
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("donor_profiles")
       .update({
         verification_status: "REJECTED",
@@ -333,14 +340,21 @@ export const verificationService: VerificationService = {
         verification_notes: null,
       })
       .eq("id", row.id)
-      .eq("verification_status", "PENDING");
+      .eq("verification_status", "PENDING")
+      .select("id, user_id")
+      .maybeSingle();
     if (error) throw AppError.server(error);
+    if (!updated) {
+      throw AppError.conflict("Only pending donors can be rejected.");
+    }
+
+    const updatedRow = updated as { id: string; user_id: string };
 
     await admin.from("audit_logs").insert({
       actor_id: adminUser.id,
       action: "DONOR_VERIFICATION_REJECTED",
       entity_type: "donor_profiles",
-      entity_id: row.id,
+      entity_id: updatedRow.id,
       metadata: {
         oldStatus: "PENDING",
         newStatus: "REJECTED",
@@ -349,7 +363,7 @@ export const verificationService: VerificationService = {
     });
 
     await notifyDonor({
-      recipientId: row.user_id,
+      recipientId: updatedRow.user_id,
       result: "REJECTED",
       rejectionReason: parsed.data.reason,
     });
@@ -461,20 +475,27 @@ export const verificationService: VerificationService = {
       throw AppError.conflict("Only pending organizations can be verified.");
     }
 
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("hospitals")
       .update({
         verification_status: "VERIFIED",
         verified_at: new Date().toISOString(),
         verified_by: adminUser.id,
         rejection_reason: null,
+        verification_notes: null,
       })
       .eq("id", hospitalId)
-      .eq("verification_status", "PENDING");
+      .eq("verification_status", "PENDING")
+      .select("id, user_id")
+      .maybeSingle();
     if (error) throw AppError.server(error);
+    if (!updated) {
+      throw AppError.conflict("Only pending organizations can be verified.");
+    }
 
+    const updatedRow = updated as { id: string; user_id: string | null };
     await notifyOwner({
-      recipientId: row.user_id,
+      recipientId: updatedRow.user_id,
       organizationType: "HOSPITAL",
       result: "VERIFIED",
     });
@@ -499,20 +520,27 @@ export const verificationService: VerificationService = {
       throw AppError.conflict("Only pending organizations can be rejected.");
     }
 
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("hospitals")
       .update({
         verification_status: "REJECTED",
         verified_at: null,
         verified_by: null,
         rejection_reason: parsed.data.reason,
+        verification_notes: null,
       })
       .eq("id", hospitalId)
-      .eq("verification_status", "PENDING");
+      .eq("verification_status", "PENDING")
+      .select("id, user_id")
+      .maybeSingle();
     if (error) throw AppError.server(error);
+    if (!updated) {
+      throw AppError.conflict("Only pending organizations can be rejected.");
+    }
 
+    const updatedRow = updated as { id: string; user_id: string | null };
     await notifyOwner({
-      recipientId: row.user_id,
+      recipientId: updatedRow.user_id,
       organizationType: "HOSPITAL",
       result: "REJECTED",
       rejectionReason: parsed.data.reason,
@@ -537,20 +565,27 @@ export const verificationService: VerificationService = {
       throw AppError.conflict("Only pending organizations can be verified.");
     }
 
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("blood_banks")
       .update({
         verification_status: "VERIFIED",
         verified_at: new Date().toISOString(),
         verified_by: adminUser.id,
         rejection_reason: null,
+        verification_notes: null,
       })
       .eq("id", bankId)
-      .eq("verification_status", "PENDING");
+      .eq("verification_status", "PENDING")
+      .select("id, user_id")
+      .maybeSingle();
     if (error) throw AppError.server(error);
+    if (!updated) {
+      throw AppError.conflict("Only pending organizations can be verified.");
+    }
 
+    const updatedRow = updated as { id: string; user_id: string | null };
     await notifyOwner({
-      recipientId: row.user_id,
+      recipientId: updatedRow.user_id,
       organizationType: "BLOOD_BANK",
       result: "VERIFIED",
     });
@@ -575,20 +610,27 @@ export const verificationService: VerificationService = {
       throw AppError.conflict("Only pending organizations can be rejected.");
     }
 
-    const { error } = await admin
+    const { data: updated, error } = await admin
       .from("blood_banks")
       .update({
         verification_status: "REJECTED",
         verified_at: null,
         verified_by: null,
         rejection_reason: parsed.data.reason,
+        verification_notes: null,
       })
       .eq("id", bankId)
-      .eq("verification_status", "PENDING");
+      .eq("verification_status", "PENDING")
+      .select("id, user_id")
+      .maybeSingle();
     if (error) throw AppError.server(error);
+    if (!updated) {
+      throw AppError.conflict("Only pending organizations can be rejected.");
+    }
 
+    const updatedRow = updated as { id: string; user_id: string | null };
     await notifyOwner({
-      recipientId: row.user_id,
+      recipientId: updatedRow.user_id,
       organizationType: "BLOOD_BANK",
       result: "REJECTED",
       rejectionReason: parsed.data.reason,

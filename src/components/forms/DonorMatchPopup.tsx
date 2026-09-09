@@ -71,8 +71,7 @@ export function DonorMatchPopup({ matches }: { matches: DonorInboxMatch[] }) {
   if (!current) return null;
 
   const hasOthers = queue.length > 1;
-  const distanceKm =
-    current.distanceMeters != null ? current.distanceMeters / 1000 : null;
+  const distanceKm = current.distanceBandKm;
   const isEmergency = mode === "emergency";
 
   function dismiss() {

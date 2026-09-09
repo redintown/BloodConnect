@@ -7,6 +7,7 @@ import {
   type NotificationPayload,
 } from "@/services/notificationService";
 import { BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constants/bloodGroups";
+import { toCoarseDistanceBandKm } from "@/lib/matching/distancePrivacy";
 import type { BloodRequest } from "@/types/domain";
 
 /**
@@ -36,7 +37,7 @@ function safeMatchPayload(request: BloodRequest, distanceMeters: number | null) 
     hospitalName: request.hospitalNameFreeform,
     requiredBy: request.requiredBy,
     approximateDistanceKm:
-      distanceMeters != null ? Math.round((distanceMeters / 1000) * 10) / 10 : null,
+      distanceMeters != null ? toCoarseDistanceBandKm(distanceMeters) : null,
     isEmergency: request.isEmergency,
   };
 }
