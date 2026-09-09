@@ -58,9 +58,10 @@ services/*  ──────────────►  Supabase (Postgres + 
                       └─ targets `hospitals` / `blood_banks`
 
 `hospitals` / `blood_banks` each have `blood_inventory` rows (one per
-blood group) and can be the target of a `blood_request`. Inventory CRUD
-is Phase 8B. Phase 8A owns org profile + verification + owner RLS.
-Phase 7 only needs verified orgs with `user_id` + location.
+blood group, `units_available` only). Phase 8B owns atomic owner adjust +
+audit. Phase 8A owns org profile + verification + owner RLS. Phase 7 only
+needs verified orgs with `user_id` + location. Phase 8C may read inventory
+as escalation hints; CAN_SUPPLY remains intent-only (no decrement/reserve).
 
 A user can hold multiple roles simultaneously (a hospital admin who is
 also a donor, for example) — role is never a single column on `profiles`.
@@ -77,7 +78,8 @@ only code allowed to query them directly:
 | `bloodRequestService` | `blood_requests` | Owns status transitions |
 | `matchingService` | (read-only across donors) | `isCompatible` + `matchDonors`; no DB writes |
 | `notificationService` | `notifications` | One adapter per channel behind a common interface |
-| `hospitalService` / `bloodBankService` | `hospitals` / `blood_banks` (+ inventory in 8B) | Phase 8A: session-bound profile CRUD |
+| `hospitalService` / `bloodBankService` | `hospitals` / `blood_banks` | Phase 8A: session-bound profile CRUD |
+| `inventoryService` | `blood_inventory` (+ audit via RPC) | Phase 8B: owner atomic adjust; no public search |
 | `verificationService` | org verification rules + admin verify/reject | Org verification is Phase 8A; donor verification is Phase 9 |
 | `adminService` | cross-cutting admin actions | Always writes an `audit_logs` row |
 | `locationService` | geo math | Only module that knows PostGIS query shapes |

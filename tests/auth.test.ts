@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
+import path from "path";
 import { AppError } from "@/lib/errors/AppError";
 import {
   assertAuthenticated,
@@ -8,6 +10,7 @@ import {
   hasRole,
 } from "@/lib/auth/authorization";
 import { mapAuthError } from "@/lib/auth/mapAuthError";
+import { isObfuscatedDuplicateSignUp } from "@/lib/auth/signUpGuards";
 import { getSafeRedirectPath } from "@/lib/auth/redirect";
 import {
   isSelfAssignableRole,
@@ -109,6 +112,9 @@ describe("mapAuthError", () => {
     expect(mapAuthError({ message: "User already registered" }).userMessage).toBe(
       "Email already registered"
     );
+    expect(mapAuthError({ code: "user_already_exists", message: "User already registered" }).code).toBe(
+      "CONFLICT"
+    );
   });
 
   it("maps session expiry and unknown failures", () => {
@@ -117,6 +123,59 @@ describe("mapAuthError", () => {
     const unknown = mapAuthError(new Error("raw SQL: relation does not exist"));
     expect(unknown.userMessage).toBe("Something went wrong. Please try again.");
     expect(unknown.userMessage).not.toContain("SQL");
+  });
+});
+
+describe("duplicate email signup detection", () => {
+  it("lowercases emails so casing cannot create lookalike accounts", () => {
+    const parsed = registerSchema.safeParse({
+      fullName: "Jane Doe",
+      email: "Jane.Doe@Example.COM",
+      phone: "+8801700000000",
+      password: "password123",
+      confirmPassword: "password123",
+      initialRole: "HOSPITAL",
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.email).toBe("jane.doe@example.com");
+    }
+  });
+
+  it("treats empty identities as obfuscated duplicate signup (confirm-email mode)", () => {
+    expect(
+      isObfuscatedDuplicateSignUp({
+        id: "00000000-0000-0000-0000-000000000000",
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+        identities: [],
+      } as never)
+    ).toBe(true);
+  });
+
+  it("does not treat a real signup identity payload as a duplicate", () => {
+    expect(
+      isObfuscatedDuplicateSignUp({
+        id: "11111111-1111-1111-1111-111111111111",
+        app_metadata: {},
+        user_metadata: {},
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+        identities: [{ id: "id-1", provider: "email", user_id: "11111111-1111-1111-1111-111111111111" }],
+      } as never)
+    ).toBe(false);
+    expect(isObfuscatedDuplicateSignUp(null)).toBe(false);
+  });
+
+  it("registers the duplicate guard in registerUser", () => {
+    const source = readFileSync(
+      path.join(path.resolve(__dirname, ".."), "src/services/authService.ts"),
+      "utf8"
+    );
+    expect(source).toContain("isObfuscatedDuplicateSignUp");
+    expect(source).toContain('Email already registered');
   });
 });
 

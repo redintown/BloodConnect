@@ -14,6 +14,7 @@ import {
   ensureHasRole,
 } from "@/lib/auth/authorization";
 import { mapAuthError } from "@/lib/auth/mapAuthError";
+import { isObfuscatedDuplicateSignUp } from "@/lib/auth/signUpGuards";
 
 /**
  * Owns auth.users, profiles (signup bootstrap), and user_roles.
@@ -162,6 +163,12 @@ export async function registerUser(input: RegisterInput) {
 
   if (error) throw mapAuthError(error);
   if (!data.user) throw AppError.server();
+
+  // Confirm-email projects: duplicate emails return a fake user (empty
+  // identities) instead of an error. Do not treat that as a new signup.
+  if (isObfuscatedDuplicateSignUp(data.user)) {
+    throw AppError.conflict("Email already registered");
+  }
 
   try {
     await bootstrapAccount(data.user, parsed.data.initialRole);

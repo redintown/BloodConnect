@@ -8,8 +8,9 @@ import type { VerificationStatus } from "@/lib/constants/verification";
 import type { BloodBank, Coordinates } from "@/types/domain";
 
 /**
- * Owns blood_banks (+ Phase 8B inventory later).
+ * Owns blood_banks.
  * Session-bound owner operations — never trust client userId for auth.
+ * Inventory is owned by inventoryService (Phase 8B).
  */
 
 type BloodBankRow = {

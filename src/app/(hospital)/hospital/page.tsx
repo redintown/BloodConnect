@@ -35,7 +35,6 @@ export default async function HospitalHomePage() {
         </Link>
         <Link href="/hospital/inventory" className="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
           Blood inventory
-          <span className="mt-1 block text-xs text-gray-400">Phase 8B</span>
         </Link>
       </div>
     </PageShell>

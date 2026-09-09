@@ -4,7 +4,11 @@ import { SELF_ASSIGNABLE_ROLES } from "@/lib/constants/roles";
 export const registerSchema = z
   .object({
     fullName: z.string().trim().min(2, "Enter your full name.").max(120),
-    email: z.string().trim().email("Enter a valid email address."),
+    email: z
+      .string()
+      .trim()
+      .email("Enter a valid email address.")
+      .transform((value) => value.toLowerCase()),
     phone: z
       .string()
       .trim()
@@ -25,7 +29,11 @@ export const registerSchema = z
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const loginSchema = z.object({
-  email: z.string().trim().email("Enter a valid email address."),
+  email: z
+      .string()
+      .trim()
+      .email("Enter a valid email address.")
+      .transform((value) => value.toLowerCase()),
   password: z.string().min(1, "Enter your password."),
 });
 
