@@ -63,7 +63,10 @@ audit. Phase 8A owns org profile + verification + owner RLS. Phase 7 only
 needs verified orgs with `user_id` + location. Phase 8C shows inventory
 hints in the org escalation inbox (exact own stock) and a safe
 non-quantitative hint to requesters on CAN_SUPPLY. CAN_SUPPLY remains
-intent-only (no decrement/reserve). Phase 8D is public search.
+intent-only (no decrement/reserve). Phase 8D public `/find-blood` searches
+VERIFIED orgs with stock > 0 for an **exact** blood group via a safe
+DEFINER RPC (no public table SELECT; no exact units or coordinates).
+Donor matching remains a separate path.
 
 A user can hold multiple roles simultaneously (a hospital admin who is
 also a donor, for example) — role is never a single column on `profiles`.
@@ -82,6 +85,7 @@ only code allowed to query them directly:
 | `notificationService` | `notifications` | One adapter per channel behind a common interface |
 | `hospitalService` / `bloodBankService` | `hospitals` / `blood_banks` | Phase 8A: session-bound profile CRUD |
 | `inventoryService` | `blood_inventory` (+ audit via RPC) | Phase 8B: owner atomic adjust; no public search |
+| `bloodAvailabilityService` | public search via safe DEFINER RPC | Phase 8D: exact group, VERIFIED, stock > 0; no units/coords |
 | `verificationService` | org verification rules + admin verify/reject | Org verification is Phase 8A; donor verification is Phase 9 |
 | `adminService` | cross-cutting admin actions | Always writes an `audit_logs` row |
 | `locationService` | geo math | Only module that knows PostGIS query shapes |

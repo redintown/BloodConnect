@@ -82,24 +82,18 @@ describe("Phase 8C escalation + inventory integration surface", () => {
     expect(source).not.toContain("adjustOwnInventoryAction");
   });
 
-  it("does not add a Phase 8C migration or public find-blood", () => {
-    const migrations = readFileSync(
-      // presence check via glob-like list in inventory test style
-      path.join(root, "supabase/migrations/0011_blood_inventory.sql"),
-      "utf8"
-    );
-    expect(migrations).toBeTruthy();
-    // No 0012 required for hints
-    let has0012 = false;
+  it("does not add a Phase 8C migration (public find-blood is Phase 8D)", () => {
+    let has0012Hints = false;
     try {
       readFileSync(path.join(root, "supabase/migrations/0012_escalation_inventory_hints.sql"), "utf8");
-      has0012 = true;
+      has0012Hints = true;
     } catch {
-      has0012 = false;
+      has0012Hints = false;
     }
-    expect(has0012).toBe(false);
+    expect(has0012Hints).toBe(false);
 
     const findBlood = readFileSync(path.join(root, "src/app/(public)/find-blood/page.tsx"), "utf8");
-    expect(findBlood).toMatch(/Not implemented|Phase/i);
+    expect(findBlood).toContain("FindBloodSearchForm");
+    expect(findBlood).toContain("not donor matching");
   });
 });

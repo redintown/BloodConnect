@@ -116,7 +116,7 @@ tests/            a small set of representative unit tests
 * \[x] Phase 5 — Contact + donor response
 * \[x] Phase 6 — Notifications
 * \[x] Phase 7 — Emergency escalation (hospitals / blood banks / admin)
-* \[ ] Phase 8 — Hospital + blood bank profiles + inventory *(8A–8C done; 8D remaining)*
+* \[x] Phase 8 — Hospital + blood bank profiles + inventory *(8A–8D complete)*
 * \[ ] Phase 9 — Admin *(donor verification + broader admin tools)*
 * \[ ] Phase 10 — Production hardening
 
@@ -129,5 +129,5 @@ tests/            a small set of representative unit tests
   * **8A** — profile + ownership/RLS + admin org verification.
   * **8B** — owner inventory (`units_available` only), atomic adjust + audit.
   * **8C** — escalation inbox inventory hints; requester sees safe availability only; CAN_SUPPLY stays intent-only.
-  * **8D** — public blood availability search.
+  * **8D** — public /find-blood availability search (exact blood group, VERIFIED orgs with stock > 0; no exact units/coordinates). Separate from donor matching.
 * **Phase 9** — donor verification and broader admin tooling (not organization verification).

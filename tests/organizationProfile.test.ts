@@ -159,10 +159,8 @@ describe("Phase 8A services and authorization surface", () => {
     expect(notifyFn).not.toContain("verifiedBy");
   });
 
-  it("does not implement public find-blood or Phase 8C escalation inventory wiring in Phase 8A", () => {
-    const findBlood = readFileSync(path.join(root, "src/app/(public)/find-blood/page.tsx"), "utf8");
+  it("does not implement Phase 8C escalation inventory wiring in Phase 8A services", () => {
     const escalation = readFileSync(path.join(root, "src/services/escalationService.ts"), "utf8");
-    expect(findBlood).toMatch(/Not implemented|Phase/i);
     expect(escalation).not.toContain("inventoryService");
     expect(escalation).not.toContain("units_available");
   });
