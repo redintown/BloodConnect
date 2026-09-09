@@ -99,8 +99,34 @@ describe("Phase 8D migration 0012", () => {
     expect(migration).not.toContain("verification_notes");
   });
 
-  it("grants execute to anon and authenticated for server public search", () => {
+  it("historically granted execute to anon/authenticated in 0012 (superseded by 0014)", () => {
     expect(migration).toContain("to anon, authenticated");
+  });
+});
+
+describe("Phase 10A/10B public search EXECUTE final state", () => {
+  it("0014 revokes anon/authenticated and grants service_role only", () => {
+    const m14 = readFileSync(
+      path.join(root, "supabase/migrations/0014_phase10a_security_hardening.sql"),
+      "utf8"
+    );
+    expect(m14).toMatch(/revoke all[\s\S]*search_public_blood_availability[\s\S]*from anon/);
+    expect(m14).toMatch(/revoke all[\s\S]*search_public_blood_availability[\s\S]*from authenticated/);
+    expect(m14).toMatch(/grant execute[\s\S]*search_public_blood_availability[\s\S]*to service_role/);
+  });
+
+  it("browser path is Server Action → bloodAvailabilityService → createAdminClient only", () => {
+    const service = readFileSync(
+      path.join(root, "src/services/bloodAvailabilityService.ts"),
+      "utf8"
+    );
+    const form = readFileSync(
+      path.join(root, "src/components/forms/FindBloodSearchForm.tsx"),
+      "utf8"
+    );
+    expect(service).toContain("createAdminClient()");
+    expect(form).not.toContain("search_public_blood_availability");
+    expect(form).not.toContain(".rpc(");
   });
 });
 

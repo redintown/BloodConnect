@@ -13,7 +13,8 @@ import type { User } from "@supabase/supabase-js";
  *   "User already registered" (mapped in mapAuthError).
  *
  * Detect the obfuscated success path so registration UX does not claim a
- * new account was created.
+ * new account was created — and so clients cannot enumerate emails by
+ * distinguishing error vs confirmation UX.
  */
 export function isObfuscatedDuplicateSignUp(user: User | null | undefined): boolean {
   if (!user) return false;

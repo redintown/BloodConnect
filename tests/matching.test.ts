@@ -13,6 +13,7 @@ import {
   verificationBoost,
 } from "@/lib/matching/scoring";
 import {
+  canPersistMatchesForRequestStatus,
   canRefreshMatchRow,
   INITIAL_MATCH_STATUS,
   selectRankedCandidates,
@@ -214,8 +215,20 @@ describe("match status and re-run protection", () => {
     expect(isProtectedMatchStatus("DECLINED")).toBe(true);
     expect(canRefreshMatchRow("ACCEPTED")).toBe(false);
     expect(canRefreshMatchRow("DECLINED")).toBe(false);
+    expect(canRefreshMatchRow("EXPIRED")).toBe(false);
     expect(canRefreshMatchRow("MATCHED")).toBe(true);
     expect(canRefreshMatchRow("NOTIFIED")).toBe(true);
+    expect(canRefreshMatchRow("VIEWED")).toBe(true);
+  });
+
+  it("only persists matches while request is PENDING/MATCHING/NO_MATCH_FOUND", () => {
+    expect(canPersistMatchesForRequestStatus("PENDING")).toBe(true);
+    expect(canPersistMatchesForRequestStatus("MATCHING")).toBe(true);
+    expect(canPersistMatchesForRequestStatus("NO_MATCH_FOUND")).toBe(true);
+    expect(canPersistMatchesForRequestStatus("DONOR_ACCEPTED")).toBe(false);
+    expect(canPersistMatchesForRequestStatus("COMPLETED")).toBe(false);
+    expect(canPersistMatchesForRequestStatus("CANCELLED")).toBe(false);
+    expect(canPersistMatchesForRequestStatus("EXPIRED")).toBe(false);
   });
 });
 

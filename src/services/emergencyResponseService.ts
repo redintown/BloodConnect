@@ -10,7 +10,7 @@ import {
   passesEmergencyCandidateCriteria,
   type EmergencyCandidateRow,
 } from "@/lib/matching/emergencyCriteria";
-import { canRefreshMatchRow, INITIAL_MATCH_STATUS } from "@/lib/matching/ranking";
+import { canPersistMatchesForRequestStatus, canRefreshMatchRow, INITIAL_MATCH_STATUS } from "@/lib/matching/ranking";
 import { assertOwnsRequest } from "@/lib/requests/statusRules";
 import { BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constants/bloodGroups";
 import { toCoarseDistanceBandKm } from "@/lib/matching/distancePrivacy";
@@ -102,6 +102,17 @@ async function upsertEmergencyMatches(
   candidates: EmergencyCandidateRow[]
 ): Promise<Array<{ matchId: string; candidate: EmergencyCandidateRow }>> {
   const admin = createAdminClient();
+
+  const { data: requestRow, error: requestError } = await admin
+    .from("blood_requests")
+    .select("status")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (requestError) throw AppError.server(requestError);
+  if (!requestRow || !canPersistMatchesForRequestStatus((requestRow as { status: string }).status)) {
+    return [];
+  }
+
   const { data: existing, error: readError } = await admin
     .from("blood_request_matches")
     .select("id, donor_id, status")
@@ -116,10 +127,20 @@ async function upsertEmergencyMatches(
   const results: Array<{ matchId: string; candidate: EmergencyCandidateRow }> = [];
 
   for (const candidate of candidates) {
+    const { data: liveRequest, error: liveError } = await admin
+      .from("blood_requests")
+      .select("status")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (liveError) throw AppError.server(liveError);
+    if (!liveRequest || !canPersistMatchesForRequestStatus((liveRequest as { status: string }).status)) {
+      return results;
+    }
+
     const prior = existingByDonor.get(candidate.donorId);
 
     if (prior) {
-      if (["ACCEPTED", "DECLINED"].includes(prior.status)) {
+      if (["ACCEPTED", "DECLINED", "EXPIRED"].includes(prior.status)) {
         continue;
       }
 
@@ -131,8 +152,12 @@ async function upsertEmergencyMatches(
             distance_meters: candidate.distanceMeters,
           })
           .eq("id", prior.id)
-          .eq("blood_request_id", requestId);
-        if (error) throw AppError.server(error);
+          .eq("blood_request_id", requestId)
+          .in("status", ["MATCHED", "NOTIFIED", "VIEWED"]);
+        if (error) {
+          if ((error.message ?? "").includes("BC_REQUEST_TERMINAL")) return results;
+          throw AppError.server(error);
+        }
         results.push({ matchId: prior.id, candidate });
         continue;
       }
@@ -150,8 +175,12 @@ async function upsertEmergencyMatches(
           responded_at: null,
         })
         .eq("id", prior.id)
-        .eq("blood_request_id", requestId);
-      if (error) throw AppError.server(error);
+        .eq("blood_request_id", requestId)
+        .in("status", ["MATCHED", "NOTIFIED", "VIEWED"]);
+      if (error) {
+        if ((error.message ?? "").includes("BC_REQUEST_TERMINAL")) return results;
+        throw AppError.server(error);
+      }
       results.push({ matchId: prior.id, candidate });
       continue;
     }
@@ -185,6 +214,7 @@ async function upsertEmergencyMatches(
         }
         continue;
       }
+      if ((error.message ?? "").includes("BC_REQUEST_TERMINAL")) return results;
       throw AppError.server(error);
     }
 

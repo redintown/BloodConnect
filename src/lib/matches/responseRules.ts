@@ -129,6 +129,9 @@ export function mapDonorResponseRpcError(error: { message?: string } | null | un
   if (message.includes("BC_UNAVAILABLE")) {
     return AppError.conflict("Set yourself as available before accepting.");
   }
+  if (message.includes("BC_INCOMPATIBLE")) {
+    return AppError.conflict("Your blood group is not compatible with this request.");
+  }
   if (message.includes("BC_MATCH_TERMINAL") || message.includes("BC_MATCH_NOT_ACCEPTED")) {
     return AppError.conflict("This match can no longer be answered.");
   }

@@ -76,7 +76,7 @@ export const matchResponseService: MatchResponseService = {
     const { data: requests, error: requestError } = await admin
       .from("blood_requests")
       .select(
-        "id, blood_group, quantity_units, urgency, required_by, hospital_name_freeform, status, contact_name, contact_phone, is_emergency"
+        "id, blood_group, quantity_units, urgency, required_by, hospital_name_freeform, status, is_emergency"
       )
       .in("id", requestIds);
 
@@ -90,8 +90,6 @@ export const matchResponseService: MatchResponseService = {
       required_by: string | null;
       hospital_name_freeform: string | null;
       status: BloodRequestStatus;
-      contact_name: string;
-      contact_phone: string;
       is_emergency: boolean | null;
     };
 

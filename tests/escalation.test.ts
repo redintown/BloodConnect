@@ -172,7 +172,9 @@ describe("Phase 7 source architecture", () => {
     expect(source).toContain("processDueEscalations");
     expect(source).toContain("Unauthorized");
     expect(source).toContain("timingSafeEqual");
-    expect(source).toContain("405");
+    expect(source).toContain("handleEscalationCron");
+    expect(source).toContain("export async function GET");
+    expect(source).not.toContain("405");
   });
 
   it("extends emergency_events in 0008 without touching 0001–0007", () => {

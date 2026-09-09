@@ -120,13 +120,15 @@ tests/            a small set of representative unit tests
 * \[x] Phase 8 — Hospital + blood bank profiles + inventory *(8A–8D complete)*
 * \[x] Phase 9 — Admin *(donor verification + broader admin tools)*
 * \[x] Phase 10A — Security hardening *(app + migration 0014; apply 0014 to live DB)*
-* \[ ] Phase 10B+ — Remaining production hardening
+* \[x] Phase 10B — Database + production hardening *(app + migration 0015; apply 0015 to live DB)*
+* \[x] Phase 10C — Final production readiness audit + minimal hardening *(migration 0016 for notification mark-read)*
+* \[ ] Phase 11 — UI/UX enhancement + full redesign
 
 ### Phase notes
 
 * **Phase 4** — normal donor matching.
 * **Phase 6** — Emergency Response (donor opt-in / YES·NO); not escalation.
-* **Phase 7** — escalate unresolved *emergency* requests to verified nearby hospitals/blood banks, then admin. Cron: `POST /api/cron/escalate` with `CRON_SECRET`.
+* **Phase 7** — escalate unresolved *emergency* requests to verified nearby hospitals/blood banks, then admin. Cron: `/api/cron/escalate` with `CRON_SECRET` (Vercel schedule every 5 minutes via `vercel.json`; also runs `expireOverdue` before escalation).
 * **Phase 8** — hospital/blood-bank product.
   * **8A** — profile + ownership/RLS + admin org verification.
   * **8B** — owner inventory (`units_available` only), atomic adjust + audit.
@@ -138,3 +140,5 @@ tests/            a small set of representative unit tests
   * Matching integration: only `REJECTED` donors are excluded; `UNVERIFIED`/`PENDING` remain match candidates as in Phase 4/6.
   * Privacy: public donor reads never expose coordinates or verification/rejection metadata.
 * **Phase 10A** — security hardening: role self-insert removed, org RPC role checks, coarse donor distance, public-search EXECUTE service_role-only, donation ownership via `donor_profiles.user_id`, org verification_notes lock, verify/reject rowcount, remove register-diag + rate-limit mapping.
+* **Phase 10B** — DB/concurrency/ops: accept-time compatibility, match persist guards + 23505, one-ACCEPTED index, donor_public_view hygiene, expires_at index, Vercel cron, SITE_URL production enforcement, cron batch isolation, DB integration harness (`npm run test:integration`).
+* **Phase 10C** — final audit + minimal fixes: register anti-enumeration, `mark_own_notification_read` DEFINER (0016), expireOverdue in cron, `server-only` on supabase server module, inbox contact over-fetch removed, org escalation distance coarsened.

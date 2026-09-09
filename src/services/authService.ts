@@ -167,9 +167,10 @@ export async function registerUser(input: RegisterInput) {
   if (!data.user) throw AppError.server();
 
   // Confirm-email projects: duplicate emails return a fake user (empty
-  // identities) instead of an error. Do not treat that as a new signup.
+  // identities) instead of an error. Match the new-signup UX so callers
+  // cannot enumerate registered emails.
   if (isObfuscatedDuplicateSignUp(data.user)) {
-    throw AppError.conflict("Email already registered");
+    return { user: data.user, session: null };
   }
 
   try {

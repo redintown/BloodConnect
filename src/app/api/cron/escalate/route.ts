@@ -3,11 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { escalationService } from "@/services/escalationService";
 
 /**
- * Cron-ready escalation processor (POST only).
- * Protect with CRON_SECRET (Authorization: Bearer <secret> or x-cron-secret header).
+ * Cron-ready escalation processor.
+ * Auth: Authorization: Bearer <CRON_SECRET> or x-cron-secret header.
  *
- * Wire later via Supabase cron, Vercel cron, or another trusted scheduler — never from the browser.
+ * Vercel Cron invokes this path on a schedule (see vercel.json) via GET with
+ * Authorization: Bearer $CRON_SECRET when CRON_SECRET is configured.
+ * External schedulers should prefer POST. Unauthenticated calls are rejected.
  */
+
+/** Vercel / Next.js route segment config — ignored on platforms that don't support it. */
+export const maxDuration = 60;
+
 function secretsEqual(provided: string, expected: string): boolean {
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
@@ -15,7 +21,7 @@ function secretsEqual(provided: string, expected: string): boolean {
   return timingSafeEqual(a, b);
 }
 
-export async function POST(request: NextRequest) {
+async function handleEscalationCron(request: NextRequest): Promise<NextResponse> {
   const expected = process.env.CRON_SECRET;
   if (!expected) {
     return NextResponse.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
@@ -39,6 +45,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+export async function POST(request: NextRequest) {
+  return handleEscalationCron(request);
+}
+
+/** Authenticated GET for Vercel Cron; same authorization as POST. */
+export async function GET(request: NextRequest) {
+  return handleEscalationCron(request);
 }

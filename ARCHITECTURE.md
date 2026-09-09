@@ -114,6 +114,18 @@ Additive migration `0014_phase10a_security_hardening.sql` (must be applied to li
 - Public search RPC EXECUTE is `service_role` only; `/find-blood` stays public via Server Action → `createAdminClient()`.
 - Org before-write triggers lock `verification_notes` (parity with donors).
 
+## Phase 10B — Database + production hardening
+
+Additive migration `0015_phase10b_database_hardening.sql` (apply to live Supabase separately):
+
+- Accept-time whole-blood compatibility re-check (`is_whole_blood_compatible` + `BC_INCOMPATIBLE`).
+- Trigger blocks opening matches on terminal requests; matching skips EXPIRED refresh and handles insert `23505`.
+- Partial unique: one `ACCEPTED` match per request (migration fails clearly if conflicting data exists).
+- `donor_public_view`: `security_invoker=true`, revoke anon/authenticated (unused by app DTOs).
+- Partial index on expirable `blood_requests.expires_at`.
+- Vercel cron every 5 minutes for `/api/cron/escalate`; per-request failure isolation; `maxDuration=60`.
+- Production `NEXT_PUBLIC_SITE_URL` enforcement via `VERCEL_ENV` / `BLOODCONNECT_ENV` (no silent localhost).
+
 ## Service boundaries
 
 Each file in `src/services/` owns exactly one set of tables and is the

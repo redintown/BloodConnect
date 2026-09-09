@@ -6,6 +6,7 @@ import { notificationService } from "@/services/notificationService";
 import { hospitalService } from "@/services/hospitalService";
 import { bloodBankService } from "@/services/bloodBankService";
 import { BLOOD_GROUP_LABELS } from "@/lib/constants/bloodGroups";
+import { toCoarseDistanceBandKm } from "@/lib/matching/distancePrivacy";
 import type { EscalationLevel } from "@/lib/constants/verification";
 import type {
   BloodRequestStatus,
@@ -85,7 +86,12 @@ export interface EscalationService {
     requestId: string,
     options?: { manual?: boolean; actorUserId?: string }
   ): Promise<EmergencyEvent | null>;
-  processDueEscalations(): Promise<{ processed: number; escalated: number; reconciled: number }>;
+  processDueEscalations(): Promise<{
+    processed: number;
+    escalated: number;
+    reconciled: number;
+    failed: number;
+  }>;
   resolveEscalation(requestId: string, reason: string): Promise<void>;
   cancelEscalation(requestId: string, reason: string): Promise<void>;
   /** Force-close OPEN escalations whose requests are already terminal. */
@@ -197,7 +203,7 @@ function safeOrgPayload(
     hospitalName: request.hospital_name_freeform,
     requiredBy: request.required_by,
     approximateDistanceKm:
-      distanceMeters != null ? Math.round((distanceMeters / 1000) * 10) / 10 : null,
+      distanceMeters != null ? toCoarseDistanceBandKm(distanceMeters) : null,
     escalationLevel: level,
     requestId: request.id,
   };
@@ -572,6 +578,15 @@ export const escalationService: EscalationService = {
 
   async processDueEscalations() {
     const admin = createAdminClient();
+
+    // Expire overdue requests before escalation decisions (Phase 10C).
+    try {
+      const { bloodRequestService } = await import("@/services/bloodRequestService");
+      await bloodRequestService.expireOverdue();
+    } catch (expireError) {
+      console.error("[escalationService] expireOverdue failed", expireError);
+    }
+
     const reconciled = await reconcileTerminalEscalations(admin);
 
     const { data, error } = await admin
@@ -587,56 +602,68 @@ export const escalationService: EscalationService = {
     const rows = (data as RequestEscalationRow[] | null) ?? [];
     let processed = 0;
     let escalated = 0;
+    let failed = 0;
 
     for (const request of rows) {
       processed += 1;
-      const matches = await loadMatchStatuses(admin, request.id);
-      if (hasAcceptedDonorMatch(matches.map((m) => m.status))) {
-        await closeActiveEscalation(admin, request.id, "RESOLVED", "DONOR_ACCEPTED");
-        continue;
-      }
+      try {
+        const matches = await loadMatchStatuses(admin, request.id);
+        if (hasAcceptedDonorMatch(matches.map((m) => m.status))) {
+          await closeActiveEscalation(admin, request.id, "RESOLVED", "DONOR_ACCEPTED");
+          continue;
+        }
 
-      const active = await loadActiveEvent(admin, request.id);
+        const active = await loadActiveEvent(admin, request.id);
 
-      if (!active) {
+        if (!active) {
+          if (
+            isDonorEscalationDue({
+              urgency: request.urgency,
+              outreachStartedAt: outreachStartedAt(request, matches),
+              requiredBy: request.required_by,
+              expiresAt: request.expires_at,
+            })
+          ) {
+            const event = await createOrgEscalation(
+              admin,
+              request,
+              deriveEscalationReason({
+                matchCount: matches.length,
+                matchStatuses: matches.map((m) => m.status),
+                manual: false,
+              }),
+              false
+            );
+            if (event) escalated += 1;
+          }
+          continue;
+        }
+
         if (
-          isDonorEscalationDue({
+          active.level === "BLOOD_BANKS_HOSPITALS" &&
+          isAdminFollowupDue({
             urgency: request.urgency,
-            outreachStartedAt: outreachStartedAt(request, matches),
+            orgEscalationTriggeredAt: new Date(active.triggeredAt),
             requiredBy: request.required_by,
             expiresAt: request.expires_at,
           })
         ) {
-          const event = await createOrgEscalation(
-            admin,
-            request,
-            deriveEscalationReason({
-              matchCount: matches.length,
-              matchStatuses: matches.map((m) => m.status),
-              manual: false,
-            }),
-            false
-          );
-          if (event) escalated += 1;
+          const promoted = await promoteToAdmin(admin, request, active);
+          if (promoted) escalated += 1;
         }
-        continue;
-      }
-
-      if (
-        active.level === "BLOOD_BANKS_HOSPITALS" &&
-        isAdminFollowupDue({
-          urgency: request.urgency,
-          orgEscalationTriggeredAt: new Date(active.triggeredAt),
-          requiredBy: request.required_by,
-          expiresAt: request.expires_at,
-        })
-      ) {
-        const promoted = await promoteToAdmin(admin, request, active);
-        if (promoted) escalated += 1;
+      } catch (requestError) {
+        failed += 1;
+        console.error("[escalationService] processDueEscalations item failed", {
+          requestId: request.id,
+          error:
+            requestError instanceof Error
+              ? { name: requestError.name, message: requestError.message }
+              : "unknown",
+        });
       }
     }
 
-    return { processed, escalated, reconciled };
+    return { processed, escalated, reconciled, failed };
   },
 
   async resolveEscalation(requestId, reason) {
@@ -744,7 +771,10 @@ export const escalationService: EscalationService = {
         organizationId: t.organization_id,
         organizationName: nameMap.get(`${t.organization_type}:${t.organization_id}`) ?? "Organization",
         status: t.status,
-        distanceMeters: t.distance_meters != null ? Number(t.distance_meters) : null,
+        distanceMeters:
+          t.distance_meters != null
+            ? toCoarseDistanceBandKm(Number(t.distance_meters)) * 1000
+            : null,
         respondedAt: t.responded_at,
         notes: t.notes,
       }));
@@ -851,7 +881,10 @@ export const escalationService: EscalationService = {
           organizationId: t.organization_id,
           organizationName: org.name,
           status: t.status,
-          distanceMeters: t.distance_meters != null ? Number(t.distance_meters) : null,
+          distanceMeters:
+            t.distance_meters != null
+              ? toCoarseDistanceBandKm(Number(t.distance_meters)) * 1000
+              : null,
           respondedAt: t.responded_at,
           notes: t.notes,
         },

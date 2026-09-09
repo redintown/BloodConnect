@@ -46,6 +46,11 @@ export async function registerAction(
       return { needsEmailConfirmation: true };
     }
   } catch (error) {
+    // Anti-enumeration: when confirm-email is off, Auth may return
+    // "already registered". Present the same confirmation UX as a new signup.
+    if (error instanceof AppError && error.code === "CONFLICT") {
+      return { needsEmailConfirmation: true };
+    }
     return actionError(error);
   }
 

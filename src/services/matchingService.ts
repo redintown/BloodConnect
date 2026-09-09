@@ -10,6 +10,7 @@ import {
 } from "@/lib/matching/criteria";
 import { MATCH_MAX_CANDIDATES, MATCH_SEARCH_RADII_METERS } from "@/lib/matching/scoring";
 import {
+  canPersistMatchesForRequestStatus,
   canRefreshMatchRow,
   INITIAL_MATCH_STATUS,
   selectRankedCandidates,
@@ -121,11 +122,33 @@ async function collectCandidates(request: BloodRequest): Promise<ReturnType<type
   return selectRankedCandidates(request, byRadius);
 }
 
+function isUniqueViolation(error: { code?: string } | null | undefined): boolean {
+  return error?.code === "23505";
+}
+
+function isTerminalMatchGuardError(error: { message?: string; code?: string } | null | undefined): boolean {
+  const message = error?.message ?? "";
+  return message.includes("BC_REQUEST_TERMINAL");
+}
+
 async function persistMatches(
   requestId: string,
   ranked: Array<MatchCandidateRow & { score: number }>
 ): Promise<void> {
   const admin = createAdminClient();
+
+  // Phase 10B: skip persistence if request is already terminal/accepted.
+  const { data: requestRow, error: requestError } = await admin
+    .from("blood_requests")
+    .select("id, status")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (requestError) throw AppError.server(requestError);
+  if (!requestRow) throw AppError.notFound("Request not found.");
+  if (!canPersistMatchesForRequestStatus((requestRow as { status: string }).status)) {
+    return;
+  }
+
   const { data: existing, error: readError } = await admin
     .from("blood_request_matches")
     .select("id, donor_id, status")
@@ -138,6 +161,17 @@ async function persistMatches(
   );
 
   for (const candidate of ranked) {
+    // Re-check before each write — closes late accept races mid-loop.
+    const { data: liveRequest, error: liveError } = await admin
+      .from("blood_requests")
+      .select("status")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (liveError) throw AppError.server(liveError);
+    if (!liveRequest || !canPersistMatchesForRequestStatus((liveRequest as { status: string }).status)) {
+      return;
+    }
+
     const prior = existingByDonor.get(candidate.donorId);
     if (prior && !canRefreshMatchRow(prior.status)) {
       continue;
@@ -152,8 +186,12 @@ async function persistMatches(
           status: INITIAL_MATCH_STATUS,
         })
         .eq("id", prior.id)
-        .eq("blood_request_id", requestId);
-      if (error) throw AppError.server(error);
+        .eq("blood_request_id", requestId)
+        .in("status", ["MATCHED", "NOTIFIED", "VIEWED"]);
+      if (error) {
+        if (isTerminalMatchGuardError(error)) return;
+        throw AppError.server(error);
+      }
     } else {
       const { error } = await admin.from("blood_request_matches").insert({
         blood_request_id: requestId,
@@ -164,7 +202,12 @@ async function persistMatches(
         notified_at: null,
         responded_at: null,
       });
-      if (error) throw AppError.server(error);
+      if (error) {
+        // Unique (blood_request_id, donor_id) race: concurrent matching — idempotent.
+        if (isUniqueViolation(error)) continue;
+        if (isTerminalMatchGuardError(error)) return;
+        throw AppError.server(error);
+      }
     }
   }
 }

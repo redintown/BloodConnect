@@ -70,16 +70,22 @@ describe("Pre-Phase-8 hardening", () => {
     expect(bloodRequest).toContain("reconcileTerminalEscalations");
   });
 
-  it("hardens cron CRON_SECRET with timing-safe compare and POST-only", () => {
+  it("hardens cron CRON_SECRET with timing-safe compare; Vercel Cron uses authenticated GET", () => {
     const route = readFileSync(path.join(root, "src/app/api/cron/escalate/route.ts"), "utf8");
     expect(route).toContain("timingSafeEqual");
     expect(route).toContain("CRON_SECRET");
-    expect(route).toContain("Method Not Allowed");
-    expect(route).toContain("405");
+    expect(route).toContain("handleEscalationCron");
+    expect(route).toContain("maxDuration");
+    expect(route).toContain("export async function POST");
+    expect(route).toContain("export async function GET");
     expect(route).not.toContain("return POST(request)");
 
     const envExample = readFileSync(path.join(root, ".env.example"), "utf8");
     expect(envExample).toContain("CRON_SECRET=");
+
+    const vercel = readFileSync(path.join(root, "vercel.json"), "utf8");
+    expect(vercel).toContain("/api/cron/escalate");
+    expect(vercel).toContain("*/5 * * * *");
   });
 
   it("routes org name/own-org reads through hospital/bloodBank services", () => {

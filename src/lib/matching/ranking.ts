@@ -49,7 +49,13 @@ export function selectRankedCandidates(
 
 /** Whether a re-run may refresh score/distance for this existing match status. */
 export function canRefreshMatchRow(status: string): boolean {
-  return status !== "ACCEPTED" && status !== "DECLINED";
+  // Never revive EXPIRED (accept race) or touch terminal ACCEPTED/DECLINED.
+  return status === "MATCHED" || status === "NOTIFIED" || status === "VIEWED";
+}
+
+/** Request statuses that may receive new/open match rows. */
+export function canPersistMatchesForRequestStatus(status: string): boolean {
+  return status === "PENDING" || status === "MATCHING" || status === "NO_MATCH_FOUND";
 }
 
 export const INITIAL_MATCH_STATUS = "MATCHED" as const;

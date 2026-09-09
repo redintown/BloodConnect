@@ -127,6 +127,7 @@ describe("RPC error mapping", () => {
     expect(mapDonorResponseRpcError({ message: "BC_NOT_FOUND" }).code).toBe("NOT_FOUND");
     expect(mapDonorResponseRpcError({ message: "BC_INELIGIBLE" }).code).toBe("CONFLICT");
     expect(mapDonorResponseRpcError({ message: "BC_UNAVAILABLE" }).code).toBe("CONFLICT");
+    expect(mapDonorResponseRpcError({ message: "BC_INCOMPATIBLE" }).code).toBe("CONFLICT");
     expect(mapDonorResponseRpcError({ message: "BC_MATCH_TERMINAL" }).code).toBe("CONFLICT");
     expect(mapDonorResponseRpcError({ message: "BC_REQUEST_NOT_MATCHING" }).code).toBe("CONFLICT");
     expect(mapDonorResponseRpcError({ message: "BC_DUPLICATE_DONATION" }).code).toBe("CONFLICT");

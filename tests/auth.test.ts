@@ -175,13 +175,20 @@ describe("duplicate email signup detection", () => {
     expect(isObfuscatedDuplicateSignUp(null)).toBe(false);
   });
 
-  it("registers the duplicate guard in registerUser", () => {
+  it("registers the duplicate guard in registerUser without revealing email existence", () => {
     const source = readFileSync(
       path.join(path.resolve(__dirname, ".."), "src/services/authService.ts"),
       "utf8"
     );
+    const actions = readFileSync(
+      path.join(path.resolve(__dirname, ".."), "src/app/(auth)/actions.ts"),
+      "utf8"
+    );
     expect(source).toContain("isObfuscatedDuplicateSignUp");
-    expect(source).toContain('Email already registered');
+    expect(source).toContain("session: null");
+    expect(source).not.toContain('throw AppError.conflict("Email already registered")');
+    expect(actions).toContain('error.code === "CONFLICT"');
+    expect(actions).toContain("needsEmailConfirmation: true");
   });
 });
 
