@@ -5,6 +5,7 @@ import { AppError } from "@/lib/errors/AppError";
 import { requireRole } from "@/services/authService";
 import { verificationService } from "@/services/verificationService";
 import { orgRejectSchema } from "@/schemas/hospital.schema";
+import { donorRejectSchema } from "@/schemas/donorVerification.schema";
 import { z } from "zod";
 
 function actionError(error: unknown): { error: string } {
@@ -70,5 +71,44 @@ export async function rejectOrganizationAction(
   revalidatePath("/admin");
   revalidatePath("/admin/organizations");
   revalidatePath("/admin/verification");
+  return { ok: true };
+}
+
+const donorActionSchema = z.object({
+  donorId: z.string().uuid(),
+});
+
+export async function verifyDonorAction(donorId: string): Promise<{ error: string } | { ok: true }> {
+  const parsed = donorActionSchema.safeParse({ donorId });
+  if (!parsed.success) return { error: "Invalid input" };
+
+  try {
+    await requireRole("ADMIN");
+    await verificationService.verifyDonor(parsed.data.donorId);
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/donors");
+  return { ok: true };
+}
+
+export async function rejectDonorAction(
+  donorId: string,
+  reason: string
+): Promise<{ error: string } | { ok: true }> {
+  const parsed = donorRejectSchema.safeParse({ donorId, reason });
+  if (!parsed.success) return { error: "Invalid input" };
+
+  try {
+    await requireRole("ADMIN");
+    await verificationService.rejectDonor(parsed.data.donorId, parsed.data.reason);
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/donors");
   return { ok: true };
 }

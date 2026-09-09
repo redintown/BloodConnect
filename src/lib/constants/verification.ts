@@ -25,5 +25,7 @@ export const NOTIFICATION_KINDS = [
   "ESCALATION_REQUESTER_ADMIN",
   /** Organization verification approved or rejected. */
   "ORG_VERIFICATION",
+  /** Donor verification approved or rejected. */
+  "DONOR_VERIFICATION",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

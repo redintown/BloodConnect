@@ -35,6 +35,8 @@ export interface DonorProfile {
   lastDonationDate: string | null;
   isEligible: boolean;
   verificationStatus: VerificationStatus;
+  /** Present only when the caller IS the donor. */
+  rejectionReason?: string | null;
   /** Present only when the caller IS the donor. Never sent to other users. */
   location?: Coordinates | null;
   isAvailable: boolean;

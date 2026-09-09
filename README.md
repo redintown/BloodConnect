@@ -117,7 +117,7 @@ tests/            a small set of representative unit tests
 * \[x] Phase 6 — Notifications
 * \[x] Phase 7 — Emergency escalation (hospitals / blood banks / admin)
 * \[x] Phase 8 — Hospital + blood bank profiles + inventory *(8A–8D complete)*
-* \[ ] Phase 9 — Admin *(donor verification + broader admin tools)*
+* \[x] Phase 9 — Admin *(donor verification + broader admin tools)*
 * \[ ] Phase 10 — Production hardening
 
 ### Phase notes
@@ -131,3 +131,7 @@ tests/            a small set of representative unit tests
   * **8C** — escalation inbox inventory hints; requester sees safe availability only; CAN_SUPPLY stays intent-only.
   * **8D** — public /find-blood availability search (exact blood group, VERIFIED orgs with stock > 0; no exact units/coordinates). Separate from donor matching.
 * **Phase 9** — donor verification and broader admin tooling (not organization verification).
+  * Donors: `UNVERIFIED` → submit → `PENDING`; admin verifies → `VERIFIED` or rejects → `REJECTED`.
+  * Sensitive re-verification: when a `VERIFIED` donor changes `blood_group` or `location`, they reset to `PENDING`.
+  * Matching integration: only `REJECTED` donors are excluded; `UNVERIFIED`/`PENDING` remain match candidates as in Phase 4/6.
+  * Privacy: public donor reads never expose coordinates or verification/rejection metadata.

@@ -14,6 +14,10 @@ export default function AdminHomePage() {
         >
           Organization verification
         </Link>
+        <Link href="/admin/donors" className="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
+          Donor verification
+          <span className="mt-1 block text-xs text-gray-400">Phase 9</span>
+        </Link>
         <Link href="/admin/users" className="rounded-lg border border-gray-200 p-3 hover:bg-gray-50">
           Users
           <span className="mt-1 block text-xs text-gray-400">Phase 9</span>

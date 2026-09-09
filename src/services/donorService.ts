@@ -26,6 +26,7 @@ interface DonorProfileRow {
   last_donation_date: string | null;
   is_eligible: boolean;
   verification_status: VerificationStatus;
+  rejection_reason: string | null;
   donor_availability:
     | {
         is_available: boolean;
@@ -146,7 +147,7 @@ async function loadOwnRow(userId: string): Promise<DonorProfileRow | null> {
   const { data, error } = await supabase
     .from("donor_profiles")
     .select(
-      "id, user_id, blood_group, last_donation_date, is_eligible, verification_status, donor_availability(is_available, is_available_at_night, emergency_response_enabled, emergency_radius_km)"
+      "id, user_id, blood_group, last_donation_date, is_eligible, verification_status, rejection_reason, donor_availability(is_available, is_available_at_night, emergency_response_enabled, emergency_radius_km)"
     )
     .eq("user_id", userId)
     .maybeSingle();
@@ -164,6 +165,7 @@ async function toOwnProfile(row: DonorProfileRow): Promise<DonorProfile> {
     lastDonationDate: row.last_donation_date,
     isEligible: row.is_eligible,
     verificationStatus: row.verification_status,
+    rejectionReason: row.rejection_reason,
     location: await readOwnLocation(),
     isAvailable: availability.isAvailable,
     isAvailableAtNight: availability.isAvailableAtNight,

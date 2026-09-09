@@ -71,6 +71,39 @@ Donor matching remains a separate path.
 A user can hold multiple roles simultaneously (a hospital admin who is
 also a donor, for example) — role is never a single column on `profiles`.
 
+## Phase 9 — Donor verification
+
+Donor verification uses `donor_profiles.verification_status`:
+
+- `UNVERIFIED`: donor account created / not yet submitted for review.
+- `PENDING`: donor submitted; admin review in progress.
+- `VERIFIED`: admin-approved; donor is eligible for normal matching.
+- `REJECTED`: admin rejected (includes `rejection_reason`); donor is excluded from matching.
+
+Admin workflow (Phase 9):
+
+1. Admin lists pending donors (`verificationService.listPendingDonors()`).
+2. Admin `verifyDonor()` or `rejectDonor()` (rejections require a reason).
+3. Admin actions send an IN_APP `DONOR_VERIFICATION` notification and write to `audit_logs`.
+
+Sensitive re-verification rules:
+
+- If a `VERIFIED` donor changes sensitive fields (`donor_profiles.blood_group` or donor `location`),
+  the trigger resets them to `PENDING` and clears admin verification metadata.
+- Availability changes (`donor_availability.is_available` / night) do not reset verification.
+
+Matching + emergency integration:
+
+- Normal matching and emergency matching both exclude only `REJECTED` donors.
+- `UNVERIFIED` and `PENDING` donors remain matchable exactly as in Phase 4/6 criteria.
+- Emergency opt-in (`donor_availability.emergency_response_enabled` + `emergency_radius_km`) is independent of
+  verification status (except that `REJECTED` donors are excluded).
+
+Privacy:
+
+- Public donor reads use `donor_public_view` / `DonorPublicSummary`, which omit coordinates and never expose
+  verification metadata or rejection reasons.
+
 ## Service boundaries
 
 Each file in `src/services/` owns exactly one set of tables and is the
@@ -86,7 +119,7 @@ only code allowed to query them directly:
 | `hospitalService` / `bloodBankService` | `hospitals` / `blood_banks` | Phase 8A: session-bound profile CRUD |
 | `inventoryService` | `blood_inventory` (+ audit via RPC) | Phase 8B: owner atomic adjust; no public search |
 | `bloodAvailabilityService` | public search via safe DEFINER RPC | Phase 8D: exact group, VERIFIED, stock > 0; no units/coords |
-| `verificationService` | org verification rules + admin verify/reject | Org verification is Phase 8A; donor verification is Phase 9 |
+| `verificationService` | org + donor verification rules + admin verify/reject | Org verification is Phase 8A; donor verification is Phase 9 |
 | `adminService` | cross-cutting admin actions | Always writes an `audit_logs` row |
 | `locationService` | geo math | Only module that knows PostGIS query shapes |
 | `escalationService` | `emergency_events`, `emergency_event_targets` | Org/admin escalation after donor stall (Phase 7) |

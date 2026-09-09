@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { AppError } from "@/lib/errors/AppError";
 import { requireRole } from "@/services/authService";
 import { donorService } from "@/services/donorService";
+import { verificationService } from "@/services/verificationService";
 import { matchResponseService } from "@/services/matchResponseService";
 import { donorProfileSchema } from "@/schemas/donor.schema";
 import { availabilitySchema, emergencySettingsSchema } from "@/schemas/availability.schema";
@@ -35,6 +36,18 @@ export async function saveDonorProfileAction(input: unknown): Promise<{ error: s
   revalidatePath("/donor");
   revalidatePath("/donor/profile");
   revalidatePath("/donor/availability");
+  return { ok: true };
+}
+
+export async function submitDonorVerificationAction(): Promise<{ error: string } | { ok: true }> {
+  try {
+    await verificationService.submitDonorVerification();
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidatePath("/donor");
+  revalidatePath("/donor/profile");
   return { ok: true };
 }
 
