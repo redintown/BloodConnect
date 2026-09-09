@@ -15,7 +15,7 @@ import type { OrganizationType } from "@/lib/escalation/constants";
 /**
  * Owns blood_inventory reads/writes.
  * Adjustments go through atomic SECURITY DEFINER RPC (stock + audit).
- * Escalation must not call this for CAN_SUPPLY (intent-only until Phase 8C hints).
+ * Escalation may READ hints via getOwnUnitsByBloodGroupMap; CAN_SUPPLY must never adjust stock.
  */
 
 export interface InventoryAdjustmentResult {
@@ -31,6 +31,8 @@ export interface InventoryService {
     organizationType: OrganizationType,
     bloodGroup: BloodGroup
   ): Promise<BloodInventoryItem>;
+  /** One fetch mapped by blood group — for escalation inbox hints (Phase 8C). */
+  getOwnUnitsByBloodGroupMap(organizationType: OrganizationType): Promise<Map<BloodGroup, number>>;
   adjustInventory(
     organizationType: OrganizationType,
     input: AdjustInventoryInput
@@ -127,6 +129,11 @@ export const inventoryService: InventoryService = {
     const item = items.find((entry) => entry.bloodGroup === bloodGroup);
     if (!item) throw AppError.notFound("Inventory row not found.");
     return item;
+  },
+
+  async getOwnUnitsByBloodGroupMap(organizationType) {
+    const items = await this.getOwnInventory(organizationType);
+    return new Map(items.map((item) => [item.bloodGroup, item.unitsAvailable]));
   },
 
   async adjustInventory(organizationType, input) {

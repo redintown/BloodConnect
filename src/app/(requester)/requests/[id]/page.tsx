@@ -11,6 +11,7 @@ import { CancelRequestButton } from "@/components/forms/CancelRequestButton";
 import { FindMatchingDonorsButton } from "@/components/forms/FindMatchingDonorsButton";
 import { ConfirmDonationButton } from "@/components/forms/ConfirmDonationButton";
 import { EscalateNowButton } from "@/components/forms/EscalateNowButton";
+import { formatRequesterCanSupplyInventoryHint } from "@/lib/inventory/hints";
 import { STATUS_LABELS } from "@/lib/constants/requestStatus";
 import {
   canRequesterCancel,
@@ -187,8 +188,27 @@ export default async function RequestDetailPage({
           {escalationSummary?.targets
             .filter((t) => t.status === "CAN_SUPPLY")
             .map((t) => (
-              <p key={t.id} className="text-sm text-green-800">
-                {t.organizationName} indicated they can supply blood.
+              <div
+                key={t.id}
+                className="rounded-lg border border-green-200 bg-green-50/80 px-3 py-2 text-sm text-green-900"
+              >
+                <p className="font-medium">{t.organizationName}</p>
+                <p>Response: Can Supply</p>
+                <p className="text-green-800">{formatRequesterCanSupplyInventoryHint()}</p>
+              </div>
+            ))}
+          {escalationSummary?.targets
+            .filter((t) => t.status === "ACKNOWLEDGED")
+            .map((t) => (
+              <p key={t.id} className="text-sm text-gray-700">
+                {t.organizationName} acknowledged the escalation.
+              </p>
+            ))}
+          {escalationSummary?.targets
+            .filter((t) => t.status === "CANNOT_HELP")
+            .map((t) => (
+              <p key={t.id} className="text-sm text-gray-600">
+                {t.organizationName} cannot help at this time.
               </p>
             ))}
           {escalationSummary?.canEscalateNow && <EscalateNowButton requestId={request.id} />}

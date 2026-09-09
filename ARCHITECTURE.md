@@ -60,8 +60,10 @@ services/*  ──────────────►  Supabase (Postgres + 
 `hospitals` / `blood_banks` each have `blood_inventory` rows (one per
 blood group, `units_available` only). Phase 8B owns atomic owner adjust +
 audit. Phase 8A owns org profile + verification + owner RLS. Phase 7 only
-needs verified orgs with `user_id` + location. Phase 8C may read inventory
-as escalation hints; CAN_SUPPLY remains intent-only (no decrement/reserve).
+needs verified orgs with `user_id` + location. Phase 8C shows inventory
+hints in the org escalation inbox (exact own stock) and a safe
+non-quantitative hint to requesters on CAN_SUPPLY. CAN_SUPPLY remains
+intent-only (no decrement/reserve). Phase 8D is public search.
 
 A user can hold multiple roles simultaneously (a hospital admin who is
 also a donor, for example) — role is never a single column on `profiles`.

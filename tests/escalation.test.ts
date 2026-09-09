@@ -203,11 +203,17 @@ describe("Phase 7 source architecture", () => {
       "utf8"
     );
     const popup = readFileSync(path.join(root, "src/components/forms/DonorMatchPopup.tsx"), "utf8");
+    const inbox = readFileSync(
+      path.join(root, "src/components/forms/OrganizationEscalationInbox.tsx"),
+      "utf8"
+    );
 
     expect(hospital).toContain("OrganizationEscalationInbox");
     expect(bank).toContain("OrganizationEscalationInbox");
     expect(detail).toContain("EscalateNowButton");
     expect(detail).toContain("escalationService.getEscalationSummary");
+    expect(detail).toContain("formatRequesterCanSupplyInventoryHint");
+    expect(inbox).toContain("inventoryService.getOwnUnitsByBloodGroupMap");
     expect(popup).not.toContain("ESCALATION_ORG");
     expect(popup).not.toContain("OrganizationEscalationInbox");
   });
