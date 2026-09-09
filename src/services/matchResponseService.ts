@@ -148,6 +148,29 @@ export const matchResponseService: MatchResponseService = {
     const user = await requireRole("DONOR");
     if (user.id !== userId) throw AppError.unauthorized("Unauthorized");
     await bloodRequestService.markDonorAccepted(matchId, userId);
+
+    // Phase 7: donor acceptance wins — stop any open escalation.
+    // On failure, force-reconcile so OPEN does not linger on a terminal request.
+    try {
+      const admin = createAdminClient();
+      const { data: match } = await admin
+        .from("blood_request_matches")
+        .select("blood_request_id")
+        .eq("id", matchId)
+        .maybeSingle();
+      const requestId = (match as { blood_request_id: string } | null)?.blood_request_id;
+      if (requestId) {
+        const { escalationService } = await import("@/services/escalationService");
+        try {
+          await escalationService.resolveEscalation(requestId, "DONOR_ACCEPTED");
+        } catch (error) {
+          console.error("[matchResponseService] resolveEscalation after accept failed", error);
+          await escalationService.reconcileTerminalEscalations([requestId]);
+        }
+      }
+    } catch (error) {
+      console.error("[matchResponseService] escalation close after accept failed", error);
+    }
   },
 
   async declineMatch(matchId, userId) {

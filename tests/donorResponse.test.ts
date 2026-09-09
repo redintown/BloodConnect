@@ -382,5 +382,6 @@ describe("Phase 5 source guards", () => {
     expect(source).toContain("createAdminClient");
     expect(source).toContain("recordDonation");
     expect(source).toContain("server-only");
+    expect(source).toContain("requireAuth");
   });
 });

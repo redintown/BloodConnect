@@ -12,5 +12,16 @@ export type EscalationLevel = (typeof ESCALATION_LEVELS)[number];
 export const NOTIFICATION_CHANNELS = ["WEB_PUSH", "SMS", "EMAIL", "WHATSAPP", "IN_APP"] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
-export const NOTIFICATION_KINDS = ["MATCH_NOTIFY", "EMERGENCY_RESPONSE"] as const;
+export const NOTIFICATION_KINDS = [
+  "MATCH_NOTIFY",
+  "EMERGENCY_RESPONSE",
+  "ESCALATION_ORG",
+  "ESCALATION_ADMIN",
+  /** Initial escalation opened (one per request). */
+  "ESCALATION_REQUESTER",
+  /** Organization responded (Acknowledge / Can Supply / Cannot Help). */
+  "ESCALATION_REQUESTER_ORG_RESPONSE",
+  /** Promoted to admin intervention. */
+  "ESCALATION_REQUESTER_ADMIN",
+] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];

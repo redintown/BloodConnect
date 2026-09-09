@@ -1,10 +1,5 @@
-import { PageShell } from "@/components/ui/PageShell";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { OrganizationEscalationInbox } from "@/components/forms/OrganizationEscalationInbox";
 
 export default function BloodBankRequestsPage() {
-  return (
-    <PageShell title="Requests" phaseNote="Escalated requests reach blood banks in Phase 7.">
-      <EmptyState title="No requests yet" />
-    </PageShell>
-  );
+  return <OrganizationEscalationInbox organizationType="BLOOD_BANK" />;
 }

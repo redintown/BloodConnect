@@ -190,6 +190,21 @@ export interface EmergencyEvent {
   id: string;
   bloodRequestId: string;
   level: EscalationLevel;
+  status: "OPEN" | "RESOLVED" | "CANCELLED";
   triggeredAt: string;
+  resolvedAt: string | null;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface EmergencyEventTarget {
+  id: string;
+  emergencyEventId: string;
+  organizationType: "HOSPITAL" | "BLOOD_BANK";
+  organizationId: string;
+  organizationName: string;
+  status: "PENDING" | "ACKNOWLEDGED" | "CAN_SUPPLY" | "CANNOT_HELP";
+  distanceMeters: number | null;
+  respondedAt: string | null;
   notes: string | null;
 }

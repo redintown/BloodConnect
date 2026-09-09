@@ -58,7 +58,7 @@ function assertInAppChannel(channel: NotificationChannel): void {
     throw AppError.validation("Invalid notification channel");
   }
   if (channel !== "IN_APP") {
-    throw AppError.validation("Only IN_APP notifications are supported in Phase 6.");
+    throw AppError.validation("Only IN_APP notifications are supported in this phase.");
   }
 }
 

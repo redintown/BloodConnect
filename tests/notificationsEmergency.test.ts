@@ -66,8 +66,9 @@ function inboxMatch(
 
 describe("Phase 6 notification constants", () => {
   it("includes IN_APP without overloading delivery status enums", () => {
+    expect(NOTIFICATION_KINDS).toContain("MATCH_NOTIFY");
+    expect(NOTIFICATION_KINDS).toContain("EMERGENCY_RESPONSE");
     expect(NOTIFICATION_CHANNELS).toContain("IN_APP");
-    expect(NOTIFICATION_KINDS).toEqual(["MATCH_NOTIFY", "EMERGENCY_RESPONSE"]);
   });
 
   it("implements notificationService with IN_APP idempotency and read_at", () => {
@@ -331,17 +332,13 @@ describe("Phase 6 emergency response / popup integration", () => {
 });
 
 describe("Phase 6 Phase 7 protection", () => {
-  it("does not implement Phase 7 escalation beyond the existing stub", () => {
-    const source = readFileSync(path.join(root, "src/services/escalationService.ts"), "utf8");
-    expect(source).toContain("NotImplementedError");
-    expect(source).not.toContain("emergency_events");
-    expect(source).not.toContain("createAdminClient");
-
+  it("keeps Phase 7 escalation separate from Phase 6 emergency response", () => {
     const emergency = readFileSync(
       path.join(root, "src/services/emergencyResponseService.ts"),
       "utf8"
     );
     expect(emergency).not.toContain("escalationService");
     expect(emergency).not.toContain("emergency_events");
+    expect(emergency).not.toContain("find_nearby_escalation_organizations");
   });
 });

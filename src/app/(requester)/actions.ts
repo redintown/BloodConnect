@@ -133,3 +133,35 @@ export async function confirmDonationReceivedAction(
   revalidatePath("/donor/requests");
   return { ok: true };
 }
+
+export async function escalateBloodRequestAction(
+  requestId: string
+): Promise<{ error: string } | { ok: true; alreadyActive?: boolean }> {
+  try {
+    const user = await requireAuth();
+    const request = await bloodRequestService.getById(requestId);
+    if (!request) return { error: "Request not found." };
+    if (request.requesterId !== user.id) return { error: "Unauthorized" };
+
+    const { escalationService } = await import("@/services/escalationService");
+    const existing = await escalationService.getActiveEscalation(requestId);
+    if (existing) {
+      revalidateRequesterPaths(requestId);
+      return { ok: true, alreadyActive: true };
+    }
+
+    const event = await escalationService.triggerEscalation(requestId, {
+      manual: true,
+      actorUserId: user.id,
+    });
+    if (!event) return { error: "Escalation is not available for this request right now." };
+  } catch (error) {
+    return actionError(error);
+  }
+
+  revalidateRequesterPaths(requestId);
+  revalidatePath("/hospital/requests");
+  revalidatePath("/blood-bank/requests");
+  revalidatePath("/admin/escalations");
+  return { ok: true };
+}

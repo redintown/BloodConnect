@@ -101,9 +101,16 @@ export async function ensureProfile(user: User): Promise<void> {
 /**
  * Assigns a single initial role. ADMIN is rejected even if a caller bypasses
  * the Zod schema. Idempotent on (user_id, role).
+ * Session-bound: userId must match the authenticated session (blocks service-role
+ * role inserts for an arbitrary other user).
  */
 export async function assignInitialRole(userId: string, role: unknown): Promise<void> {
   if (!isSelfAssignableRole(role)) {
+    throw AppError.unauthorized("Unauthorized");
+  }
+
+  const session = await getCurrentUser();
+  if (!session || session.id !== userId) {
     throw AppError.unauthorized("Unauthorized");
   }
 

@@ -265,6 +265,18 @@ export const bloodRequestService: BloodRequestService = {
       .eq("requester_id", requesterId);
 
     if (error) throw AppError.server(error);
+
+    try {
+      const { escalationService } = await import("@/services/escalationService");
+      try {
+        await escalationService.cancelEscalation(requestId, "REQUEST_CANCELLED");
+      } catch (escalationError) {
+        console.error("[bloodRequestService] cancelEscalation failed", escalationError);
+        await escalationService.reconcileTerminalEscalations([requestId]);
+      }
+    } catch (escalationError) {
+      console.error("[bloodRequestService] escalation close on cancel failed", escalationError);
+    }
   },
 
   async getById(requestId) {
@@ -315,6 +327,21 @@ export const bloodRequestService: BloodRequestService = {
       .in("status", [...EXPIRABLE_REQUEST_STATUSES]);
 
     if (updateError) throw AppError.server(updateError);
+
+    try {
+      const { escalationService } = await import("@/services/escalationService");
+      try {
+        for (const id of overdueIds) {
+          await escalationService.cancelEscalation(id, "REQUEST_EXPIRED");
+        }
+      } catch (escalationError) {
+        console.error("[bloodRequestService] cancelEscalation on expire failed", escalationError);
+        await escalationService.reconcileTerminalEscalations(overdueIds);
+      }
+    } catch (escalationError) {
+      console.error("[bloodRequestService] escalation close on expire failed", escalationError);
+    }
+
     return overdueIds.length;
   },
 
@@ -399,6 +426,20 @@ export const bloodRequestService: BloodRequestService = {
 
     if (error) throw mapDonorResponseRpcError(error);
     if (!data) throw AppError.server(new Error("Missing donation id from confirm RPC"));
-    return typeof data === "string" ? data : String(data);
+    const donationId = typeof data === "string" ? data : String(data);
+
+    try {
+      const { escalationService } = await import("@/services/escalationService");
+      try {
+        await escalationService.resolveEscalation(requestId, "REQUEST_COMPLETED");
+      } catch (escalationError) {
+        console.error("[bloodRequestService] resolveEscalation on complete failed", escalationError);
+        await escalationService.reconcileTerminalEscalations([requestId]);
+      }
+    } catch (escalationError) {
+      console.error("[bloodRequestService] escalation close on complete failed", escalationError);
+    }
+
+    return donationId;
   },
 };

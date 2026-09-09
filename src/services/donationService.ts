@@ -1,12 +1,14 @@
 import "server-only";
 import { AppError } from "@/lib/errors/AppError";
 import { createAdminClient } from "@/lib/supabase/server";
+import { requireAuth } from "@/services/authService";
 import { recordDonationSchema, type RecordDonationInput } from "@/schemas/donation.schema";
 import type { DonationRecord } from "@/types/domain";
 
 /**
  * Owns writes to donations. Reads for the owning donor stay on donorService.
  * No authenticated INSERT policy — all inserts go through the service-role client.
+ * Session-bound: only the matched donor or the request owner may record.
  */
 
 export interface DonationService {
@@ -15,6 +17,7 @@ export interface DonationService {
 
 export const donationService: DonationService = {
   async recordDonation(input) {
+    const user = await requireAuth();
     const parsed = recordDonationSchema.safeParse(input);
     if (!parsed.success) {
       throw AppError.validation("Invalid input");
@@ -54,6 +57,21 @@ export const donationService: DonationService = {
     }
     if (matchRow.status !== "ACCEPTED") {
       throw AppError.conflict("Donations can only be recorded for an accepted match.");
+    }
+
+    const { data: request, error: requestError } = await admin
+      .from("blood_requests")
+      .select("id, requester_id")
+      .eq("id", bloodRequestId)
+      .maybeSingle();
+    if (requestError) throw AppError.server(requestError);
+    if (!request) throw AppError.notFound("Request not found.");
+
+    const requesterId = (request as { requester_id: string }).requester_id;
+    const isDonor = user.id === donorId;
+    const isRequester = user.id === requesterId;
+    if (!isDonor && !isRequester) {
+      throw AppError.unauthorized("Unauthorized");
     }
 
     const { data: existing, error: existingError } = await admin

@@ -10,6 +10,7 @@ import { BloodRequestForm } from "@/components/forms/BloodRequestForm";
 import { CancelRequestButton } from "@/components/forms/CancelRequestButton";
 import { FindMatchingDonorsButton } from "@/components/forms/FindMatchingDonorsButton";
 import { ConfirmDonationButton } from "@/components/forms/ConfirmDonationButton";
+import { EscalateNowButton } from "@/components/forms/EscalateNowButton";
 import { STATUS_LABELS } from "@/lib/constants/requestStatus";
 import {
   canRequesterCancel,
@@ -20,6 +21,7 @@ import {
 import { bloodRequestService } from "@/services/bloodRequestService";
 import { matchingService } from "@/services/matchingService";
 import { matchResponseService } from "@/services/matchResponseService";
+import { escalationService } from "@/services/escalationService";
 import { requireAuth } from "@/services/authService";
 
 export default async function RequestDetailPage({
@@ -50,6 +52,15 @@ export default async function RequestDetailPage({
     emergencyParam != null && emergencyParam !== "" && !Number.isNaN(Number(emergencyParam))
       ? Number(emergencyParam)
       : null;
+
+  let escalationSummary = null;
+  if (request.isEmergency) {
+    try {
+      escalationSummary = await escalationService.getEscalationSummary(request.id, user.id);
+    } catch {
+      escalationSummary = null;
+    }
+  }
 
   let acceptedContact = null;
   if (accepted?.matchId) {
@@ -145,6 +156,43 @@ export default async function RequestDetailPage({
 
       {request.status === "COMPLETED" && (
         <p className="text-sm text-green-700">This request is completed. Donation recorded.</p>
+      )}
+
+      {request.isEmergency && (
+        <section className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50/40 p-4">
+          <h2 className="text-base font-semibold text-gray-900">Emergency escalation</h2>
+          {request.status === "MATCHING" && !escalationSummary?.active && (
+            <p className="text-sm text-gray-700">
+              {justEmergencyCount && justEmergencyCount > 0
+                ? "Emergency donors contacted. Waiting for a donor response."
+                : "Finding donors…"}
+            </p>
+          )}
+          {escalationSummary?.active && (
+            <p className="text-sm font-medium text-red-900">
+              Your request has been escalated to nearby hospitals and blood banks
+              {escalationSummary.active.level === "ADMIN_INTERVENTION"
+                ? " and is under admin review"
+                : ""}
+              .
+            </p>
+          )}
+          {escalationSummary && (
+            <ul className="grid gap-1 text-sm text-gray-700">
+              <li>Organizations contacted: {escalationSummary.orgContactedCount}</li>
+              <li>Acknowledged / responding: {escalationSummary.acknowledgedCount}</li>
+              <li>Can supply: {escalationSummary.canSupplyCount}</li>
+            </ul>
+          )}
+          {escalationSummary?.targets
+            .filter((t) => t.status === "CAN_SUPPLY")
+            .map((t) => (
+              <p key={t.id} className="text-sm text-green-800">
+                {t.organizationName} indicated they can supply blood.
+              </p>
+            ))}
+          {escalationSummary?.canEscalateNow && <EscalateNowButton requestId={request.id} />}
+        </section>
       )}
 
       <section className="flex flex-col gap-3">
