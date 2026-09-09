@@ -19,6 +19,14 @@ export const metadata: Metadata = {
   title: siteConfig.name,
   description: siteConfig.description,
   manifest: "/manifest.webmanifest",
+  // Browser tab / bookmark icon uses the official brand mark. The artwork is
+  // square (1:1) so it needs no cropping. SVG favicons are supported by all
+  // current evergreen browsers; no `apple` entry is declared because iOS
+  // touch icons require raster artwork, which would mean generating derived
+  // assets (out of scope — see the Phase 11B/logo report).
+  icons: {
+    icon: [{ url: "/logo/bloodconnect-logo.svg", type: "image/svg+xml" }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

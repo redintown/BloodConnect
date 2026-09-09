@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { Icon } from "@/components/ui/Icon";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 import { isNavItemActive, type NavSection } from "@/components/nav/navConfig";
 
 /**
@@ -12,6 +13,11 @@ import { isNavItemActive, type NavSection } from "@/components/nav/navConfig";
  *  - desktop (≥1024px): persistent left rail, 256px wide.
  *
  * Hidden below 640px, where MobileNav owns navigation.
+ *
+ * Branding: the official logo lock-up sits at the top of the rail, and the
+ * emblem alone leads the tablet bar so the horizontal row of destinations
+ * is not crowded. Both link home and rely on BrandLogo for their accessible
+ * name (no aria-label here, or it would be announced twice).
  *
  * Section titles and count badges are only shown in the rail — the tablet
  * bar stays a single compact row. AppShell reserves the rail width.
@@ -23,7 +29,7 @@ export function DesktopNav({
   ariaLabel = "Main",
 }: {
   sections: NavSection[];
-  /** Portal name shown at the top of the rail (identity, not a CTA). */
+  /** Portal name shown under the rail logo, e.g. "Donor portal". */
   title?: string;
   titleHref?: string;
   ariaLabel?: string;
@@ -43,16 +49,23 @@ export function DesktopNav({
         "lg:sticky lg:top-0 lg:h-dvh lg:w-64 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r"
       )}
     >
-      {title && (
+      {/* Desktop rail: full lock-up, with room for the wordmark. */}
+      <div className="hidden flex-col gap-1 px-4 pb-3 pt-5 lg:flex">
+        <Link href={titleHref} className="inline-flex w-fit rounded-md">
+          <BrandLogo variant="full" size="md" priority />
+        </Link>
+        {title && <p className="text-caption text-text-tertiary">{title}</p>}
+      </div>
+
+      <div className="flex items-center gap-1 overflow-x-auto px-4 py-2 lg:flex-col lg:items-stretch lg:gap-4 lg:overflow-x-visible lg:px-3 lg:py-3">
+        {/* Tablet bar: emblem only, so destinations keep the room. */}
         <Link
           href={titleHref}
-          className="hidden px-4 pb-2 pt-5 text-h3 text-brand lg:block"
+          className="mr-1 flex min-h-control min-w-control shrink-0 items-center justify-center rounded-md lg:hidden"
         >
-          {title}
+          <BrandLogo variant="mark" size="sm" priority />
         </Link>
-      )}
 
-      <div className="flex gap-1 overflow-x-auto px-4 py-2 lg:flex-col lg:gap-4 lg:overflow-x-visible lg:px-3 lg:py-3">
         {sections.map((section, sectionIndex) => (
           <div
             key={section.title ?? sectionIndex}
