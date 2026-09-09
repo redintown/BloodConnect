@@ -2,10 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Design tokens — "Clinical Infrastructure" (Phase 11B)
+   Single source of truth for colour. Stored as space-separated RGB channels
+   so Tailwind can apply opacity modifiers (bg-emergency/10).
+   Never hard-code these hex values in components; use the semantic
+   Tailwind classes (bg-surface, text-text-secondary, border-border, …).
+   ========================================================================== */
+:root {
+  /* Structure */
+  --color-background: 255 255 255; /* #FFFFFF page base */
+  --color-canvas: 247 248 250; /* #F7F8FA shell behind cards */
+  --color-surface: 255 255 255; /* #FFFFFF cards, sheets, dialogs */
+  --color-muted: 242 244 247; /* #F2F4F7 inert fills, table headers */
+  --color-border: 228 231 236; /* #E4E7EC default hairline */
+  --color-border-strong: 208 213 221; /* #D0D5DD inputs, emphasised edges */
+
+  /* Text */
+  --color-text: 16 24 40; /* #101828 primary text */
+  --color-text-secondary: 71 84 103; /* #475467 body, labels */
+  --color-text-tertiary: 102 112 133; /* #667085 helper, captions */
+
+  /* Actions */
+  --color-primary: 16 24 40; /* #101828 ink — standard primary action */
+  --color-primary-foreground: 255 255 255; /* #FFFFFF text on ink */
+  --color-brand: 159 18 57; /* #9F1239 identity only, never a CTA */
+
+  /* Emergency — reserved. Not a generic primary colour. */
+  --color-emergency: 220 38 38; /* #DC2626 */
+  --color-emergency-hover: 185 28 28; /* #B91C1C */
+  --color-emergency-surface: 254 242 242; /* #FEF2F2 */
+
+  /* Destructive — distinct from emergency on purpose. */
+  --color-danger: 180 35 24; /* #B42318 */
+  --color-danger-surface: 254 243 242; /* #FEF3F2 */
+
+  /* Feedback */
+  --color-success: 6 118 71; /* #067647 */
+  --color-success-surface: 236 253 243; /* #ECFDF3 */
+  --color-warning: 181 71 8; /* #B54708 */
+  --color-warning-surface: 255 250 235; /* #FFFAEB */
+  --color-info: 23 92 211; /* #175CD3 */
+  --color-info-surface: 239 248 255; /* #EFF8FF */
+}
+
 html {
   -webkit-tap-highlight-color: transparent;
 }
 
 body {
   min-height: 100dvh;
+}
+
+/* --------------------------------------------------------------------------
+   Keyboard focus. Components that draw their own ring set focus-visible:
+   outline-none; everything else inherits this visible default so no
+   interactive element can ship without a focus indicator.
+   -------------------------------------------------------------------------- */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--color-info));
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion. Motion that carries meaning (loading spinners) opts back
+   in with data-allow-motion, so status is never silently removed.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *:not([data-allow-motion]):not([data-allow-motion] *),
+  *:not([data-allow-motion]):not([data-allow-motion] *)::before,
+  *:not([data-allow-motion]):not([data-allow-motion] *)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-allow-motion] {
+    animation-duration: 1.2s !important;
+  }
+}
+
+@layer utilities {
+  /* Safe-area helpers for the fixed mobile bottom navigation and sheets. */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

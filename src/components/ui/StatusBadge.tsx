@@ -1,22 +1,14 @@
-import { STATUS_LABELS, type BloodRequestStatus } from "@/lib/constants/requestStatus";
-import { cn } from "@/lib/utils/cn";
+import { type BloodRequestStatus } from "@/lib/constants/requestStatus";
+import { StatusChip } from "@/components/ui/StatusChip";
 
-const STYLES: Partial<Record<BloodRequestStatus, string>> = {
-  PENDING: "bg-gray-100 text-gray-700",
-  MATCHING: "bg-blue-100 text-blue-700",
-  DONOR_CONTACTED: "bg-blue-100 text-blue-700",
-  DONOR_ACCEPTED: "bg-green-100 text-green-700",
-  DONOR_ON_THE_WAY: "bg-green-100 text-green-700",
-  COMPLETED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-gray-100 text-gray-500",
-  EXPIRED: "bg-gray-100 text-gray-500",
-  NO_MATCH_FOUND: "bg-red-100 text-red-700",
-};
-
+/**
+ * @deprecated Use `<StatusChip kind="request" value={…} />` directly.
+ *
+ * Kept as a thin delegating wrapper so the Phase 0–10 call sites keep
+ * working unchanged while screens migrate in later Phase 11 sub-phases.
+ * Behaviour is identical; only the presentation now comes from the shared
+ * status system.
+ */
 export function StatusBadge({ status }: { status: BloodRequestStatus }) {
-  return (
-    <span className={cn("rounded-full px-2.5 py-1 text-xs font-medium", STYLES[status])}>
-      {STATUS_LABELS[status]}
-    </span>
-  );
+  return <StatusChip kind="request" value={status} />;
 }

@@ -4,7 +4,11 @@ import { siteConfig } from "@/config/site";
 
 export default function HomePage() {
   return (
-    <main className="flex min-h-dvh flex-col justify-between gap-8 p-6">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="mx-auto flex min-h-dvh w-full max-w-form flex-col justify-between gap-8 p-6 outline-none"
+    >
       <div className="flex flex-col gap-2 pt-10">
         <h1 className="text-2xl font-bold">{siteConfig.name}</h1>
         <p className="text-gray-600">{siteConfig.description}</p>

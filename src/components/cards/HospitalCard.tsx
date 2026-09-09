@@ -1,5 +1,11 @@
 import type { Hospital } from "@/types/domain";
 
+/**
+ * @deprecated Unused since Phase 8 — `/find-blood` builds its own result
+ * markup. Folds into a single `OrganizationCard` (with public/admin variants)
+ * when the organization screens are redesigned in Phase 11E. Left in place
+ * rather than deleted so that phase can reuse the shape and field choices.
+ */
 export function HospitalCard({ hospital }: { hospital: Hospital }) {
   return (
     <div className="rounded-lg border border-gray-200 p-4">

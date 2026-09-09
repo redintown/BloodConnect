@@ -1,5 +1,9 @@
 import type { BloodBank } from "@/types/domain";
 
+/**
+ * @deprecated Unused since Phase 8 — see the note on `HospitalCard`. Folds
+ * into a single `OrganizationCard` in Phase 11F.
+ */
 export function BloodBankCard({ bloodBank }: { bloodBank: BloodBank }) {
   return (
     <div className="rounded-lg border border-gray-200 p-4">
