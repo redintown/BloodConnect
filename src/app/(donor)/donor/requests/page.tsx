@@ -1,9 +1,22 @@
-import { PageShell } from "@/components/ui/PageShell";
+import Link from "next/link";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 import { DonorMatchActions } from "@/components/forms/DonorMatchActions";
+import { buttonClassName } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
 import { requireRole } from "@/services/authService";
 import { matchResponseService } from "@/services/matchResponseService";
-import type { AcceptedMatchContact } from "@/types/domain";
+import { selectActionableDonorMatches } from "@/lib/matches/responseRules";
+import type { AcceptedMatchContact, DonorInboxMatch } from "@/types/domain";
+
+const CLOSED_REQUEST_STATUSES = new Set(["COMPLETED", "CANCELLED", "EXPIRED"]);
+
+function isInProgress(match: DonorInboxMatch): boolean {
+  return (
+    match.matchStatus === "ACCEPTED" && !CLOSED_REQUEST_STATUSES.has(match.request.status)
+  );
+}
 
 export default async function DonorRequestsPage() {
   const user = await requireRole("DONOR");
@@ -23,54 +36,97 @@ export default async function DonorRequestsPage() {
       })
   );
 
-  const active = matches.filter((m) =>
-    ["MATCHED", "NOTIFIED", "VIEWED", "ACCEPTED"].includes(m.matchStatus)
+  const actionable = selectActionableDonorMatches(matches);
+  const actionableIds = new Set(actionable.map((m) => m.matchId));
+  const inProgress = matches.filter((m) => !actionableIds.has(m.matchId) && isInProgress(m));
+  const inProgressIds = new Set(inProgress.map((m) => m.matchId));
+  const past = matches.filter(
+    (m) => !actionableIds.has(m.matchId) && !inProgressIds.has(m.matchId)
   );
-  const closed = matches.filter((m) => ["DECLINED", "EXPIRED"].includes(m.matchStatus));
 
   return (
-    <PageShell title="Requests near me">
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        title="Requests"
+        description="Requests matched to you. Respond when needed, then follow accepted requests through to confirmation."
+      />
+
       {matches.length === 0 ? (
         <EmptyState
+          icon="inbox"
           title="No matched requests yet"
-          description="When a requester finds you as a match, the request will appear here for Accept or Decline."
+          description="When a requester finds you as a match, the request will appear here so you can accept or decline."
+          action={
+            <Link href="/donor" className={buttonClassName({ variant: "secondary", size: "sm" })}>
+              Donor home
+            </Link>
+          }
         />
       ) : (
-        <div className="flex flex-col gap-6">
-          {active.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <h2 className="text-base font-semibold text-gray-800">Active</h2>
-              {active.map((item) => (
-                <div key={item.matchId} className="flex flex-col gap-2">
-                  <DonorMatchActions item={item} />
-                  {contacts.get(item.matchId)?.request && (
-                    <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm">
-                      <p className="font-medium text-gray-800">Requester contact</p>
-                      <p className="text-gray-700">
-                        {contacts.get(item.matchId)!.request!.contactName} ·{" "}
-                        {contacts.get(item.matchId)!.request!.contactPhone}
-                      </p>
-                      {contacts.get(item.matchId)!.request!.hospitalNameFreeform && (
-                        <p className="text-gray-600">
-                          {contacts.get(item.matchId)!.request!.hospitalNameFreeform}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+        <div className="flex flex-col gap-8">
+          {actionable.length > 0 && (
+            <section aria-labelledby="actionable-matches-heading" className="flex flex-col gap-3">
+              <SectionHeader
+                id="actionable-matches-heading"
+                title="Needs your response"
+                description="Accept or decline these matches."
+                count={actionable.length}
+              />
+              {actionable.map((item) => (
+                <DonorMatchActions
+                  key={item.matchId}
+                  item={item}
+                  contact={contacts.get(item.matchId) ?? null}
+                />
               ))}
             </section>
           )}
-          {closed.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <h2 className="text-base font-semibold text-gray-800">Closed</h2>
-              {closed.map((item) => (
-                <DonorMatchActions key={item.matchId} item={item} />
+
+          {inProgress.length > 0 && (
+            <section aria-labelledby="active-matches-heading" className="flex flex-col gap-3">
+              <SectionHeader
+                id="active-matches-heading"
+                title="Accepted / in progress"
+                description="You accepted these. Mark on the way when you leave, and use contact details when shown."
+                count={inProgress.length}
+              />
+              {inProgress.map((item) => (
+                <DonorMatchActions
+                  key={item.matchId}
+                  item={item}
+                  contact={contacts.get(item.matchId) ?? null}
+                />
+              ))}
+            </section>
+          )}
+
+          {past.length > 0 && (
+            <section aria-labelledby="past-matches-heading" className="flex flex-col gap-3">
+              <SectionHeader
+                id="past-matches-heading"
+                title="Past"
+                description="Completed, declined, expired, or otherwise closed matches."
+                count={past.length}
+              />
+              {past.map((item) => (
+                <DonorMatchActions
+                  key={item.matchId}
+                  item={item}
+                  contact={contacts.get(item.matchId) ?? null}
+                />
               ))}
             </section>
           )}
         </div>
       )}
-    </PageShell>
+
+      <Link
+        href="/donor"
+        className="inline-flex min-h-control w-fit items-center gap-1 rounded-md px-1 text-label text-text-secondary hover:bg-muted hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1"
+      >
+        <Icon name="chevron-left" className="h-4 w-4" />
+        Donor home
+      </Link>
+    </div>
   );
 }

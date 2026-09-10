@@ -22,24 +22,29 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
  */
 
 /**
- * Routes that own their own header.
- *
- * The (auth) layout renders its own brand lock-up and needs no navigation:
- * showing this bar there duplicated the branding and offered "Log in /
- * Register" links to someone already on that exact page. The landing page
- * now renders PublicHeader, which carries both the brand and the account
- * actions — two bars would mean two logos and two sets of nav.
+ * Exact routes that own their own header (public + auth).
  *
  * MIGRATION NOTE: /how-it-works still uses this bar. It adopts PublicHeader
  * in the Phase 11C step that redesigns it, and its path joins this list then.
+ *
+ * Authenticated portals that adopt AppShell + DesktopNav (currently /donor)
+ * are hidden by path prefix below — DesktopNav and DonorShellHeader already
+ * carry branding and account controls. Do not render both, or the logo and
+ * log-out control would appear twice.
  */
 const HIDDEN_ON = ["/", "/login", "/register", "/find-blood", "/about"];
+
+function ownsOwnChrome(pathname: string | null): boolean {
+  if (!pathname) return false;
+  if (HIDDEN_ON.includes(pathname)) return true;
+  return pathname === "/donor" || pathname.startsWith("/donor/");
+}
 
 export function AuthNav() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
-  if (pathname && HIDDEN_ON.includes(pathname)) return null;
+  if (ownsOwnChrome(pathname)) return null;
 
   return (
     <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2 sm:px-6">

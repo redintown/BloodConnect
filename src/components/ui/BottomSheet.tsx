@@ -11,8 +11,7 @@ import { Modal } from "@/components/ui/Modal";
  * For a yes/no confirmation, use <ConfirmDialog> instead.
  *
  * Inherits the full a11y contract from Modal (focus trap, Escape, focus
- * restoration, correct role placement). This is the intended replacement
- * for DonorMatchPopup's bespoke overlay in a later sub-phase.
+ * restoration, correct role placement).
  */
 export function BottomSheet({
   open,
@@ -21,6 +20,7 @@ export function BottomSheet({
   description,
   footer,
   dismissible = true,
+  showCloseButton = true,
   children,
   className,
 }: {
@@ -31,6 +31,7 @@ export function BottomSheet({
   /** Sticky action area — keep the primary action here on mobile. */
   footer?: React.ReactNode;
   dismissible?: boolean;
+  showCloseButton?: boolean;
   children?: React.ReactNode;
   className?: string;
 }) {
@@ -42,6 +43,7 @@ export function BottomSheet({
       description={description}
       placement="sheet"
       dismissible={dismissible}
+      showCloseButton={showCloseButton}
       footer={footer}
       className={className}
     >

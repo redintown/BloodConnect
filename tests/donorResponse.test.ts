@@ -292,9 +292,13 @@ describe("Phase 5 source guards", () => {
     expect(popup).toContain("acceptMatchAction");
     expect(popup).toContain("declineMatchAction");
     expect(popup).toContain("markOnTheWayAction");
-    expect(popup).toContain('role="dialog"');
+    expect(popup).toContain("BottomSheet");
     expect(popup).toContain("Maybe later");
     expect(popup).not.toContain("accept_blood_request_match");
+    // Dialog semantics live on the shared Modal panel used by BottomSheet.
+    expect(readFileSync(path.join(root, "src/components/ui/Modal.tsx"), "utf8")).toContain(
+      'role="dialog"'
+    );
 
     // Global portal mount — not only the dashboard / "I want to donate" entry.
     expect(layout).toContain("DonorPortalMatchOverlay");

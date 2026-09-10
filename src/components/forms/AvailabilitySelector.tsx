@@ -7,36 +7,69 @@ import {
   saveDonorEmergencySettingsAction,
 } from "@/app/(donor)/actions";
 import { EMERGENCY_RADIUS_KM_OPTIONS } from "@/lib/matching/emergencyCriteria";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { cn } from "@/lib/utils/cn";
 
+/**
+ * Normal availability + Emergency Response settings.
+ *
+ * Two separate concepts, saved through the existing actions:
+ * `saveDonorAvailabilityAction` then `saveDonorEmergencySettingsAction`.
+ * Explicit save only — no auto-save.
+ */
 function ToggleRow({
   label,
   description,
   checked,
   disabled,
   onChange,
+  tone = "default",
 }: {
   label: string;
   description: string;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
+  tone?: "default" | "emergency";
 }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left ${
-        checked ? "border-emergency bg-emergency/5" : "border-gray-300"
-      } disabled:opacity-50`}
+      className={cn(
+        "flex min-h-control w-full items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        checked
+          ? tone === "emergency"
+            ? "border-emergency/25 bg-emergency-surface"
+            : "border-success/20 bg-success-surface"
+          : "border-border-strong bg-surface hover:bg-muted"
+      )}
     >
-      <span>
-        <span className="block text-sm font-medium text-gray-800">{label}</span>
-        <span className="block text-xs text-gray-500">{description}</span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-body-strong text-text">{label}</span>
+        <span className="text-caption text-text-secondary">{description}</span>
       </span>
-      <span className={`h-3 w-3 rounded-full ${checked ? "bg-emergency" : "bg-gray-300"}`} />
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center rounded-sm border px-2 py-0.5 text-caption font-medium",
+          checked
+            ? tone === "emergency"
+              ? "border-emergency/25 bg-surface text-emergency"
+              : "border-success/20 bg-surface text-success"
+            : "border-border bg-muted text-text-secondary"
+        )}
+      >
+        {checked ? "On" : "Off"}
+      </span>
     </button>
   );
 }
@@ -67,6 +100,7 @@ export function AvailabilitySelector({
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError(null);
     setInfo(null);
 
@@ -101,41 +135,63 @@ export function AvailabilitySelector({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3">
-      <ToggleRow
-        label="Available to donate"
-        description="Nearby matching requests can include you."
-        checked={available}
-        onChange={onAvailableChange}
-      />
-      <ToggleRow
-        label="Available at night"
-        description="Include me in night-time emergency matching."
-        checked={night}
-        disabled={!available}
-        onChange={setNight}
-      />
+    <form onSubmit={onSubmit} className="flex flex-col gap-8" noValidate>
+      <section aria-labelledby="normal-availability-heading" className="flex flex-col gap-3">
+        <SectionHeader
+          id="normal-availability-heading"
+          title="Normal availability"
+          description="Controls whether you appear in normal matching. Turning this off does not disable Emergency Response."
+        />
 
-      <div className="mt-2 border-t border-gray-200 pt-4">
-        <h3 className="text-sm font-semibold text-gray-900">Emergency Response</h3>
-        <p className="mt-1 text-xs text-gray-500">
-          When enabled, you may receive urgent blood requests even when your normal availability is
-          off. You always choose whether to accept.
-        </p>
-        <div className="mt-3 flex flex-col gap-3">
-          <ToggleRow
-            label={emergencyOn ? "ON" : "OFF"}
-            description="Independent of normal availability — turning this on does not mark you available."
-            checked={emergencyOn}
-            onChange={setEmergencyOn}
-          />
-          <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-            Emergency radius
+        <ToggleRow
+          label="Available to donate"
+          description="Nearby matching requests can include you."
+          checked={available}
+          onChange={onAvailableChange}
+        />
+        <ToggleRow
+          label="Available at night"
+          description="Include me in night-time matching when I am available."
+          checked={night}
+          disabled={!available}
+          onChange={setNight}
+        />
+      </section>
+
+      <section
+        aria-labelledby="emergency-response-heading"
+        className="flex flex-col gap-3 border-t border-border pt-8"
+      >
+        <SectionHeader
+          id="emergency-response-heading"
+          title="Emergency Response"
+          description="Emergency requests can reach you even when normal availability is off. You always choose whether to accept."
+        />
+
+        <ToggleRow
+          label="Emergency Response"
+          description={
+            emergencyOn
+              ? "On — urgent requests within your radius can reach you."
+              : "Off — emergency matching will not include you."
+          }
+          checked={emergencyOn}
+          onChange={setEmergencyOn}
+          tone="emergency"
+        />
+
+        <FormField
+          label="Emergency radius"
+          helperText="How far you are willing to travel for emergency requests."
+        >
+          {({ id, describedBy, className }) => (
             <select
+              id={id}
               value={radiusKm}
               onChange={(event) => setRadiusKm(Number(event.target.value))}
               disabled={!emergencyOn}
-              className="rounded-xl border border-gray-300 px-4 py-3 text-base outline-none focus:border-emergency focus:ring-1 focus:ring-emergency disabled:opacity-50"
+              aria-describedby={describedBy}
+              className={className}
             >
               {EMERGENCY_RADIUS_KM_OPTIONS.map((km) => (
                 <option key={km} value={km}>
@@ -143,24 +199,20 @@ export function AvailabilitySelector({
                 </option>
               ))}
             </select>
-          </label>
-        </div>
-      </div>
+          )}
+        </FormField>
+      </section>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not save">
           {error}
-        </p>
+        </Alert>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
+      {info && <Alert variant="success">{info}</Alert>}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-xl bg-emergency px-6 py-3 font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
-      >
-        {loading ? "Saving…" : "Save settings"}
-      </button>
+      <Button type="submit" fullWidth loading={loading} loadingLabel="Saving…">
+        Save settings
+      </Button>
     </form>
   );
 }

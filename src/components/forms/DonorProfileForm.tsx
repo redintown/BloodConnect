@@ -5,12 +5,24 @@ import { BLOOD_GROUPS, BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constan
 import { donorProfileSchema } from "@/schemas/donor.schema";
 import { saveDonorProfileAction, submitDonorVerificationAction } from "@/app/(donor)/actions";
 import { LocationPicker } from "@/components/forms/LocationPicker";
-import { isEligibleFromLastDonation, nextEligibleDate } from "@/lib/donors/eligibility";
+import { nextEligibleDate } from "@/lib/donors/eligibility";
 import type { Coordinates, DonorProfile } from "@/types/domain";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { cn } from "@/lib/utils/cn";
 
-const inputClassName =
-  "w-full rounded-xl border border-gray-300 px-4 py-3 text-base outline-none focus:border-emergency focus:ring-1 focus:ring-emergency";
-
+/**
+ * Donor profile editor — presentation only.
+ *
+ * Saves through `saveDonorProfileAction` / `submitDonorVerificationAction`.
+ * Eligibility is displayed from the saved profile DTO (`isEligible`); the
+ * wait-until date is shown only when the backend already marks the donor
+ * ineligible and a last-donation date exists. No client-side eligibility
+ * boolean is computed while editing.
+ */
 export function DonorProfileForm({ profile }: { profile: DonorProfile | null }) {
   const [bloodGroup, setBloodGroup] = useState<BloodGroup | "">(profile?.bloodGroup ?? "");
   const [lastDonationDate, setLastDonationDate] = useState(profile?.lastDonationDate ?? "");
@@ -23,11 +35,16 @@ export function DonorProfileForm({ profile }: { profile: DonorProfile | null }) 
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [verificationInfo, setVerificationInfo] = useState<string | null>(null);
 
-  const eligiblePreview = isEligibleFromLastDonation(lastDonationDate || null);
-  const nextDate = lastDonationDate ? nextEligibleDate(lastDonationDate) : null;
+  const savedWaitUntil =
+    profile && !profile.isEligible && profile.lastDonationDate
+      ? nextEligibleDate(profile.lastDonationDate)
+      : null;
+
+  const dateDirty = (lastDonationDate || "") !== (profile?.lastDonationDate ?? "");
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError(null);
     setInfo(null);
 
@@ -59,6 +76,7 @@ export function DonorProfileForm({ profile }: { profile: DonorProfile | null }) 
   }
 
   async function onSubmitVerification() {
+    if (verificationLoading) return;
     setVerificationError(null);
     setVerificationInfo(null);
     setVerificationLoading(true);
@@ -79,143 +97,214 @@ export function DonorProfileForm({ profile }: { profile: DonorProfile | null }) 
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={onSubmit} className="flex flex-col gap-8" noValidate>
       {profile && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-          {profile.verificationStatus === "UNVERIFIED" && (
-            <>
-              <p className="text-sm font-medium text-gray-800">Donor account is not automatically verified.</p>
-              <p className="mt-1 text-sm text-gray-600">Submit your profile for admin review.</p>
-              <button
-                type="button"
-                onClick={onSubmitVerification}
-                disabled={verificationLoading}
-                className="mt-3 rounded-xl bg-emergency px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+        <section aria-labelledby="profile-status-heading" className="flex flex-col gap-3">
+          <SectionHeader id="profile-status-heading" title="Profile status" />
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
+              <p className="text-label text-text-secondary">Blood group</p>
+              <p className="text-blood-group text-text">{BLOOD_GROUP_LABELS[profile.bloodGroup]}</p>
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
+              <p className="text-label text-text-secondary">Verification</p>
+              <StatusChip kind="verification" value={profile.verificationStatus} />
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
+              <p className="text-label text-text-secondary">Eligibility</p>
+              <span
+                className={cn(
+                  "inline-flex w-fit items-center rounded-sm border px-2 py-0.5 text-caption font-medium",
+                  profile.isEligible
+                    ? "border-success/20 bg-success-surface text-success"
+                    : "border-warning/25 bg-warning-surface text-warning"
+                )}
               >
-                {verificationLoading ? "Submitting..." : "Submit verification"}
-              </button>
-            </>
-          )}
-
-          {profile.verificationStatus === "PENDING" && (
-            <>
-              <p className="text-sm font-medium text-gray-800">Verification pending</p>
-              <p className="mt-1 text-sm text-gray-600">Admin review is in progress.</p>
-            </>
-          )}
-
-          {profile.verificationStatus === "VERIFIED" && (
-            <>
-              <p className="text-sm font-medium text-green-800">Your donor account is verified.</p>
-              <p className="mt-1 text-sm text-gray-600">Thank you for helping the community.</p>
-            </>
-          )}
-
-          {profile.verificationStatus === "REJECTED" && (
-            <>
-              <p className="text-sm font-medium text-red-800">
-                Donor verification rejected
-              </p>
-              {profile.rejectionReason && (
-                <p className="mt-1 text-sm text-gray-700">
-                  Reason: {profile.rejectionReason}
-                </p>
+                {profile.isEligible ? "Eligible to donate" : "Not currently eligible"}
+              </span>
+              {!profile.isEligible && savedWaitUntil && (
+                <p className="text-caption text-text-secondary">Wait until {savedWaitUntil}</p>
               )}
-              <p className="mt-1 text-sm text-gray-600">
-                Please update your profile and resubmit for verification.
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
+              <p className="text-label text-text-secondary">Location</p>
+              <p className="text-body-strong text-text">
+                {profile.location ? "Set" : "Not set"}
               </p>
-              <button
-                type="button"
-                onClick={onSubmitVerification}
-                disabled={verificationLoading}
-                className="mt-3 rounded-xl border border-emergency px-4 py-2 text-sm font-semibold text-emergency disabled:opacity-60"
-              >
-                {verificationLoading ? "Submitting..." : "Resubmit for verification"}
-              </button>
-            </>
-          )}
+            </div>
+          </div>
 
-          {verificationError && (
-            <p role="alert" className="mt-2 text-sm text-red-600">
-              {verificationError}
-            </p>
-          )}
-          {verificationInfo && (
-            <p className="mt-2 text-sm text-green-700">
-              {verificationInfo}
-            </p>
-          )}
-        </div>
+          <div className="rounded-lg border border-border bg-surface p-4">
+            {profile.verificationStatus === "UNVERIFIED" && (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-body-strong text-text">
+                    Donor account is not automatically verified.
+                  </p>
+                  <p className="mt-1 text-body text-text-secondary">
+                    Submit your profile for admin review.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  className="w-fit"
+                  loading={verificationLoading}
+                  loadingLabel="Submitting…"
+                  onClick={() => void onSubmitVerification()}
+                >
+                  Submit verification
+                </Button>
+              </div>
+            )}
+
+            {profile.verificationStatus === "PENDING" && (
+              <div>
+                <p className="text-body-strong text-text">Verification pending</p>
+                <p className="mt-1 text-body text-text-secondary">Admin review is in progress.</p>
+              </div>
+            )}
+
+            {profile.verificationStatus === "VERIFIED" && (
+              <div>
+                <p className="text-body-strong text-success">Your donor account is verified.</p>
+                <p className="mt-1 text-body text-text-secondary">
+                  Thank you for helping the community.
+                </p>
+              </div>
+            )}
+
+            {profile.verificationStatus === "REJECTED" && (
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-body-strong text-danger">Donor verification rejected</p>
+                  {profile.rejectionReason && (
+                    <p className="mt-1 text-body text-text-secondary">
+                      Reason: {profile.rejectionReason}
+                    </p>
+                  )}
+                  <p className="mt-1 text-body text-text-secondary">
+                    Please update your profile and resubmit for verification.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-fit"
+                  loading={verificationLoading}
+                  loadingLabel="Submitting…"
+                  onClick={() => void onSubmitVerification()}
+                >
+                  Resubmit for verification
+                </Button>
+              </div>
+            )}
+
+            {verificationError && (
+              <Alert variant="danger" className="mt-3" title="Could not submit">
+                {verificationError}
+              </Alert>
+            )}
+            {verificationInfo && (
+              <Alert variant="success" className="mt-3">
+                {verificationInfo}
+              </Alert>
+            )}
+          </div>
+        </section>
       )}
 
-      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        Blood group
-        <select
-          name="bloodGroup"
-          value={bloodGroup}
-          onChange={(event) => setBloodGroup(event.target.value as BloodGroup | "")}
-          className={inputClassName}
-          required
-        >
-          <option value="">Select blood group</option>
-          {BLOOD_GROUPS.map((group) => (
-            <option key={group} value={group}>
-              {BLOOD_GROUP_LABELS[group]}
-            </option>
-          ))}
-        </select>
-        {fieldErrors.bloodGroup && (
-          <span className="font-normal text-red-600">{fieldErrors.bloodGroup}</span>
-        )}
-      </label>
-
-      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        Last donation date
-        <input
-          type="date"
-          name="lastDonationDate"
-          value={lastDonationDate}
-          max={new Date().toISOString().slice(0, 10)}
-          onChange={(event) => setLastDonationDate(event.target.value)}
-          className={inputClassName}
+      <section aria-labelledby="donor-info-heading" className="flex flex-col gap-4">
+        <SectionHeader
+          id="donor-info-heading"
+          title="Donor information"
+          description="Blood group and last donation are used for matching."
         />
-        <span className="font-normal text-xs text-gray-500">Leave blank if you have never donated.</span>
-        {fieldErrors.lastDonationDate && (
-          <span className="font-normal text-red-600">{fieldErrors.lastDonationDate}</span>
-        )}
-      </label>
 
-      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-        <p className="font-medium text-gray-800">Eligibility</p>
-        {eligiblePreview ? (
-          <p className="text-green-700">Eligible to donate</p>
-        ) : (
-          <p className="text-gray-700">
-            Not eligible yet{nextDate ? ` — wait until ${nextDate}` : ""}.
-          </p>
-        )}
-      </div>
+        <FormField label="Blood group" error={fieldErrors.bloodGroup || null} required>
+          {({ id, describedBy, invalid, className, required }) => (
+            <select
+              id={id}
+              name="bloodGroup"
+              value={bloodGroup}
+              onChange={(event) => setBloodGroup(event.target.value as BloodGroup | "")}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              required={required}
+              className={className}
+            >
+              <option value="">Select blood group</option>
+              {BLOOD_GROUPS.map((group) => (
+                <option key={group} value={group}>
+                  {BLOOD_GROUP_LABELS[group]}
+                </option>
+              ))}
+            </select>
+          )}
+        </FormField>
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium text-gray-700">Location</legend>
-        <LocationPicker value={location} onChange={setLocation} />
-        {fieldErrors.location && <span className="text-sm text-red-600">{fieldErrors.location}</span>}
-      </fieldset>
+        <FormField
+          label="Last donation date"
+          helperText={
+            dateDirty
+              ? "Eligibility updates after you save. Leave blank if you have never donated."
+              : "Leave blank if you have never donated."
+          }
+          error={fieldErrors.lastDonationDate || null}
+        >
+          {({ id, describedBy, invalid, className }) => (
+            <input
+              id={id}
+              type="date"
+              name="lastDonationDate"
+              value={lastDonationDate}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(event) => setLastDonationDate(event.target.value)}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              className={className}
+            />
+          )}
+        </FormField>
+
+        {!lastDonationDate && (
+          <p className="text-caption text-text-tertiary">No donation recorded</p>
+        )}
+      </section>
+
+      <section aria-labelledby="location-heading" className="flex flex-col gap-3">
+        <SectionHeader
+          id="location-heading"
+          title="Location"
+          description="Used to find nearby requests. Exact coordinates are never shown to others."
+        />
+        <fieldset
+          aria-invalid={fieldErrors.location ? true : undefined}
+          className="flex flex-col gap-2"
+        >
+          <legend className="sr-only">Location</legend>
+          <LocationPicker value={location} onChange={setLocation} />
+          {fieldErrors.location && (
+            <p role="alert" className="text-caption text-danger">
+              {fieldErrors.location}
+            </p>
+          )}
+        </fieldset>
+      </section>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not save">
           {error}
-        </p>
+        </Alert>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
+      {info && <Alert variant="success">{info}</Alert>}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-xl bg-emergency px-6 py-3 font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
-      >
-        {loading ? "Saving…" : "Save profile"}
-      </button>
+      <Button type="submit" fullWidth loading={loading} loadingLabel="Saving…">
+        Save profile
+      </Button>
     </form>
   );
 }

@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils/cn";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
@@ -10,6 +11,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
  * responsive padding and the `#main-content` skip-link target instead of the
  * old fixed 24px / phone-column layout.
  *
+ * Pass `embedded` when the page already lives inside AppShell (which owns the
+ * `main` landmark). Embedded mode renders a plain region so we never nest
+ * two mains or duplicate the skip target.
+ *
  * The `phaseNote` prop is accepted but intentionally no longer rendered:
  * internal build-phase language ("Wires up in Phase 9") must not appear in a
  * healthcare product. Call sites keep compiling; the note simply disappears.
@@ -17,18 +22,33 @@ import { PageHeader } from "@/components/ui/PageHeader";
 export function PageShell({
   title,
   children,
+  embedded = false,
 }: {
   title: string;
   /** @deprecated No longer rendered. Remove when migrating the screen. */
   phaseNote?: string;
+  /** True when AppShell (or another layout) already provides `<main>`. */
+  embedded?: boolean;
   children?: React.ReactNode;
 }) {
+  const className = cn(
+    "flex w-full flex-col gap-6 outline-none",
+    embedded
+      ? "max-w-none"
+      : "mx-auto min-h-dvh max-w-form px-4 py-6 sm:px-6"
+  );
+
+  if (embedded) {
+    return (
+      <div className={className}>
+        <PageHeader title={title} />
+        <div className="flex flex-col gap-4">{children}</div>
+      </div>
+    );
+  }
+
   return (
-    <main
-      id="main-content"
-      tabIndex={-1}
-      className="mx-auto flex min-h-dvh w-full max-w-form flex-col gap-6 px-4 py-6 outline-none sm:px-6"
-    >
+    <main id="main-content" tabIndex={-1} className={className}>
       <PageHeader title={title} />
       <div className="flex flex-col gap-4">{children}</div>
     </main>
