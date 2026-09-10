@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { logoutAction } from "@/app/(auth)/actions";
 import { BrandLogo } from "@/components/brand/BrandLogo";
@@ -19,8 +20,26 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
  * from the root layout — DesktopNav already renders the rail/tablet branding.
  * Do not render both at once, or the logo would appear twice.
  */
+
+/**
+ * Routes that own their own header.
+ *
+ * The (auth) layout renders its own brand lock-up and needs no navigation:
+ * showing this bar there duplicated the branding and offered "Log in /
+ * Register" links to someone already on that exact page. The landing page
+ * now renders PublicHeader, which carries both the brand and the account
+ * actions — two bars would mean two logos and two sets of nav.
+ *
+ * MIGRATION NOTE: /how-it-works still uses this bar. It adopts PublicHeader
+ * in the Phase 11C step that redesigns it, and its path joins this list then.
+ */
+const HIDDEN_ON = ["/", "/login", "/register", "/find-blood", "/about"];
+
 export function AuthNav() {
   const { user, loading } = useAuth();
+  const pathname = usePathname();
+
+  if (pathname && HIDDEN_ON.includes(pathname)) return null;
 
   return (
     <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-2 sm:px-6">
@@ -31,7 +50,7 @@ export function AuthNav() {
         <BrandLogo variant="mark" size="sm" priority />
       </Link>
 
-      <nav aria-label="Account" className="ml-auto flex items-center gap-3 text-label">
+      <nav aria-label="Account" className="ml-auto flex items-center gap-2 text-label">
         {loading ? (
           <span aria-live="polite" className="text-text-tertiary">
             <span className="sr-only">Checking your session…</span>
@@ -43,7 +62,7 @@ export function AuthNav() {
             <form action={logoutAction}>
               <button
                 type="submit"
-                className="rounded-md px-2 py-1.5 font-medium text-text-secondary hover:bg-muted hover:text-text"
+                className="inline-flex min-h-control items-center rounded-md px-3 font-medium text-text-secondary hover:bg-muted hover:text-text"
               >
                 Log out
               </button>
@@ -53,13 +72,13 @@ export function AuthNav() {
           <>
             <Link
               href="/login"
-              className="rounded-md px-2 py-1.5 text-text-secondary hover:bg-muted hover:text-text"
+              className="inline-flex min-h-control items-center rounded-md px-3 text-text-secondary hover:bg-muted hover:text-text"
             >
               Log in
             </Link>
             <Link
               href="/register"
-              className="rounded-md px-2 py-1.5 font-medium text-text hover:bg-muted"
+              className="inline-flex min-h-control items-center rounded-md px-3 font-medium text-text hover:bg-muted"
             >
               Register
             </Link>

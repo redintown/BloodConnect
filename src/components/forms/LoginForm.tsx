@@ -3,10 +3,18 @@
 import { useState } from "react";
 import { loginSchema } from "@/schemas/auth.schema";
 import { loginAction } from "@/app/(auth)/actions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
 
-const inputClassName =
-  "w-full rounded-xl border border-gray-300 px-4 py-3 text-base outline-none focus:border-emergency focus:ring-1 focus:ring-emergency";
-
+/**
+ * Sign-in form. Presentation only — validation (loginSchema), the
+ * `loginAction` server action, its redirect and its error mapping are
+ * unchanged from Phase 10.
+ *
+ * The submit is `primary` (ink), not emergency red: emergency red is reserved
+ * for emergency flows so it keeps meaning where it matters.
+ */
 export function LoginForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +24,8 @@ export function LoginForm({ next }: { next?: string }) {
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Guards a second submit from an Enter keypress while the action is in flight.
+    if (loading) return;
     setError(null);
 
     const parsed = loginSchema.safeParse({ email, password });
@@ -36,50 +46,55 @@ export function LoginForm({ next }: { next?: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        Email
-        <input
-          type="email"
-          name="email"
-          autoComplete="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          className={inputClassName}
-          required
-        />
-        {fieldErrors.email && <span className="font-normal text-red-600">{fieldErrors.email}</span>}
-      </label>
-
-      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        Password
-        <input
-          type="password"
-          name="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          className={inputClassName}
-          required
-        />
-        {fieldErrors.password && (
-          <span className="font-normal text-red-600">{fieldErrors.password}</span>
-        )}
-      </label>
-
+    <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not sign in">
           {error}
-        </p>
+        </Alert>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded-xl bg-emergency px-6 py-3 font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
-      >
-        {loading ? "Signing in…" : "Log in"}
-      </button>
+      <div className="flex flex-col gap-4">
+        <FormField label="Email" error={fieldErrors.email || null}>
+          {({ id, describedBy, invalid, className }) => (
+            <input
+              id={id}
+              type="email"
+              name="email"
+              autoComplete="email"
+              inputMode="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              className={className}
+              required
+            />
+          )}
+        </FormField>
+
+        <FormField label="Password" error={fieldErrors.password || null}>
+          {({ id, describedBy, invalid, className }) => (
+            <input
+              id={id}
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              aria-describedby={describedBy}
+              aria-invalid={invalid}
+              className={className}
+              required
+            />
+          )}
+        </FormField>
+      </div>
+
+      <Button type="submit" fullWidth loading={loading} loadingLabel="Signing in…">
+        Sign in
+      </Button>
     </form>
   );
 }

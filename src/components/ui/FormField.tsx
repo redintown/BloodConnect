@@ -35,10 +35,19 @@ export interface FormFieldRenderProps {
  * aria-invalid on failure. Errors are announced (role="alert").
  *
  * Children is a render prop so the control keeps full ownership of its own
- * type and props while the wiring is handled here.
+ * type and props while the wiring is handled here. Apply the pieces
+ * explicitly — they are named for intent, not for DOM attributes:
  *
  *   <FormField label="Email" error={errors.email}>
- *     {(field) => <input type="email" {...field} />}
+ *     {({ id, describedBy, invalid, className }) => (
+ *       <input
+ *         id={id}
+ *         type="email"
+ *         aria-describedby={describedBy}
+ *         aria-invalid={invalid}
+ *         className={className}
+ *       />
+ *     )}
  *   </FormField>
  */
 export function FormField({

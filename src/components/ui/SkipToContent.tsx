@@ -1,9 +1,9 @@
 /**
  * Skip link — the first focusable element on every page.
  *
- * Targets `#main-content`, which is set by AppShell and PageShell (and the
- * landing page's own main element), so keyboard and screen-reader users can
- * bypass the account bar and navigation.
+ * Targets `#main-content`, which is set by AppShell, PageShell, the (auth)
+ * layout and the landing page's own main element, so keyboard and
+ * screen-reader users can bypass the account bar and navigation.
  */
 export function SkipToContent() {
   return (
