@@ -3,11 +3,35 @@
 import { useState } from "react";
 import { BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constants/bloodGroups";
 import { adjustOwnInventoryAction } from "@/app/(org)/inventoryActions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { fieldControlClassName, fieldControlErrorClassName } from "@/components/ui/FormField";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { cn } from "@/lib/utils/cn";
 import type { BloodInventoryItem } from "@/types/domain";
 import type { OrganizationType } from "@/lib/escalation/constants";
 
-const inputClassName =
-  "w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emergency focus:ring-1 focus:ring-emergency";
+/**
+ * Blood inventory — presentation only.
+ *
+ * Same contracts as before: inventory is always exactly one record per
+ * blood group (`inventoryService.getOwnInventory` fills in unrecorded
+ * groups at 0 units), edits are delta adjustments through
+ * `adjustOwnInventoryAction`, and there is no add/delete of records and no
+ * derived availability field. Nothing here recalculates stock.
+ */
+
+/** The service falls back to this exact sentinel when a group has no row yet. */
+const NEVER_RECORDED_ISO = new Date(0).toISOString();
+
+function formatUpdated(updatedAt: string): string {
+  if (updatedAt === NEVER_RECORDED_ISO) return "Not yet recorded";
+  return `Updated ${new Date(updatedAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  })}`;
+}
 
 export function OrganizationInventoryPanel({
   organizationType,
@@ -20,19 +44,20 @@ export function OrganizationInventoryPanel({
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [reason, setReason] = useState("");
   const [busyGroup, setBusyGroup] = useState<BloodGroup | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ group: BloodGroup; message: string } | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
   async function adjust(bloodGroup: BloodGroup, sign: 1 | -1) {
-    setError(null);
+    if (busyGroup) return;
     setInfo(null);
 
     const raw = amounts[bloodGroup] ?? "1";
     const amount = Number(raw);
     if (!Number.isInteger(amount) || amount <= 0) {
-      setError("Enter a positive whole number of units.");
+      setRowError({ group: bloodGroup, message: "Enter a positive whole number of units." });
       return;
     }
+    setRowError(null);
 
     const delta = sign * amount;
     setBusyGroup(bloodGroup);
@@ -44,14 +69,14 @@ export function OrganizationInventoryPanel({
     setBusyGroup(null);
 
     if ("error" in result) {
-      setError(result.error);
+      setRowError({ group: bloodGroup, message: result.error });
       return;
     }
 
     setItems((current) =>
       current.map((item) =>
         item.bloodGroup === bloodGroup
-          ? { ...item, unitsAvailable: result.unitsAvailable, id: item.id }
+          ? { ...item, unitsAvailable: result.unitsAvailable, updatedAt: new Date().toISOString() }
           : item
       )
     );
@@ -63,43 +88,76 @@ export function OrganizationInventoryPanel({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <p className="text-sm text-gray-600">
-        Available units only. Adjustments are atomic and audited. CAN_SUPPLY does not change stock.
-      </p>
+    <div className="flex flex-col gap-6">
+      <section aria-labelledby="inventory-context-heading" className="flex flex-col gap-3">
+        <SectionHeader id="inventory-context-heading" title="Inventory status" />
+        <Alert variant="info">
+          Available units only. Adjustments are atomic and audited. CAN_SUPPLY does not change
+          stock.
+        </Alert>
+      </section>
 
-      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        Reason (optional)
-        <input
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          className={inputClassName}
-          maxLength={300}
-          placeholder="e.g. Restock delivery"
+      <section aria-labelledby="inventory-records-heading" className="flex flex-col gap-4">
+        <SectionHeader
+          id="inventory-records-heading"
+          title="Blood group inventory"
+          count={items.length}
         />
-      </label>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-            <tr>
-              <th className="px-4 py-3 font-semibold">Blood group</th>
-              <th className="px-4 py-3 font-semibold">Available</th>
-              <th className="px-4 py-3 font-semibold">Amount</th>
-              <th className="px-4 py-3 font-semibold">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => {
-              const busy = busyGroup === item.bloodGroup;
-              return (
-                <tr key={item.bloodGroup} className="border-t border-gray-100">
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {BLOOD_GROUP_LABELS[item.bloodGroup]}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-gray-800">{item.unitsAvailable}</td>
-                  <td className="px-4 py-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="inventory-reason" className="text-label text-text">
+            Reason
+          </label>
+          <input
+            id="inventory-reason"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            maxLength={300}
+            placeholder="e.g. Restock delivery"
+            aria-describedby="inventory-reason-helper"
+            className={fieldControlClassName}
+          />
+          <p id="inventory-reason-helper" className="text-caption text-text-tertiary">
+            Optional. Applied to the next Add or Remove you make below.
+          </p>
+        </div>
+
+        <ul role="list" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => {
+            const busy = busyGroup === item.bloodGroup;
+            const invalid = rowError?.group === item.bloodGroup;
+            const label = BLOOD_GROUP_LABELS[item.bloodGroup];
+            const headingId = `inventory-${item.bloodGroup}-heading`;
+            const amountId = `inventory-${item.bloodGroup}-amount`;
+            const errorId = `inventory-${item.bloodGroup}-error`;
+
+            return (
+              <li key={item.bloodGroup}>
+                <div
+                  role="group"
+                  aria-labelledby={headingId}
+                  className="flex h-full flex-col gap-3 rounded-lg border border-border bg-surface p-4"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 id={headingId} className="text-h3 text-text">
+                      {label}
+                    </h3>
+                    <span className="text-caption text-text-tertiary">
+                      {formatUpdated(item.updatedAt)}
+                    </span>
+                  </div>
+
+                  <p className="text-body text-text-secondary">
+                    <span className="text-h2 tabular-nums text-text">{item.unitsAvailable}</span>{" "}
+                    units available
+                  </p>
+
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor={amountId} className="text-label text-text">
+                      Amount
+                    </label>
                     <input
+                      id={amountId}
                       type="number"
                       min={1}
                       step={1}
@@ -111,43 +169,56 @@ export function OrganizationInventoryPanel({
                           [item.bloodGroup]: event.target.value,
                         }))
                       }
-                      className={`${inputClassName} max-w-[6rem]`}
                       disabled={busy}
+                      aria-invalid={invalid || undefined}
+                      aria-describedby={invalid ? errorId : undefined}
+                      className={cn(
+                        fieldControlClassName,
+                        "max-w-[7rem]",
+                        invalid && fieldControlErrorClassName
+                      )}
                     />
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        disabled={busy || busyGroup !== null}
-                        onClick={() => adjust(item.bloodGroup, 1)}
-                        className="rounded-lg bg-emergency px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
-                      >
-                        Add
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy || busyGroup !== null}
-                        onClick={() => adjust(item.bloodGroup, -1)}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 disabled:opacity-60"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    {invalid && (
+                      <p id={errorId} role="alert" className="text-caption text-danger">
+                        {rowError.message}
+                      </p>
+                    )}
+                  </div>
 
-      {error && (
-        <p role="alert" className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={busyGroup !== null}
+                      loading={busy}
+                      loadingLabel="Adding…"
+                      aria-label={`Add units to ${label}`}
+                      onClick={() => void adjust(item.bloodGroup, 1)}
+                    >
+                      Add
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={busyGroup !== null}
+                      loading={busy}
+                      loadingLabel="Removing…"
+                      aria-label={`Remove units from ${label}`}
+                      onClick={() => void adjust(item.bloodGroup, -1)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {info && <Alert variant="success">{info}</Alert>}
     </div>
   );
 }

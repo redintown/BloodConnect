@@ -7,18 +7,25 @@ import {
   submitHospitalVerificationAction,
 } from "@/app/(org)/profileActions";
 import { LocationPicker } from "@/components/forms/LocationPicker";
+import {
+  OrganizationVerificationPanel,
+  UnsavedChangesNote,
+} from "@/components/forms/OrganizationVerificationPanel";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { FormField } from "@/components/ui/FormField";
+import { SectionHeader } from "@/components/ui/SectionHeader";
+import { StatusChip } from "@/components/ui/StatusChip";
 import type { Hospital } from "@/types/domain";
 
-const inputClassName =
-  "w-full rounded-xl border border-gray-300 px-4 py-3 text-base outline-none focus:border-emergency focus:ring-1 focus:ring-emergency";
-
-const STATUS_COPY: Record<Hospital["verificationStatus"], string> = {
-  UNVERIFIED: "Not submitted for verification yet.",
-  PENDING: "Awaiting admin review. Having a HOSPITAL role does not mean you are verified.",
-  VERIFIED: "Verified. Changing name, phone, address, or location requires re-verification.",
-  REJECTED: "Rejected. Update your profile and resubmit.",
-};
-
+/**
+ * Hospital organization profile — presentation only.
+ *
+ * Same contracts as before: `hospitalProfileSchema` for client-side field
+ * errors, `saveHospitalProfileAction` for create/update, and
+ * `submitHospitalVerificationAction` for verification submission. The
+ * backend remains authoritative for verification and allowed edits.
+ */
 export function HospitalProfileForm({ profile }: { profile: Hospital | null }) {
   const [name, setName] = useState(profile?.name ?? "");
   const [contactPhone, setContactPhone] = useState(profile?.phone ?? "");
@@ -32,8 +39,17 @@ export function HospitalProfileForm({ profile }: { profile: Hospital | null }) {
   const [rejectionReason, setRejectionReason] = useState(profile?.rejectionReason ?? null);
   const [loading, setLoading] = useState(false);
 
+  const dirty =
+    name !== (profile?.name ?? "") ||
+    contactPhone !== (profile?.phone ?? "") ||
+    address !== (profile?.address ?? "") ||
+    has24hEmergency !== (profile?.has24hEmergency ?? false) ||
+    location?.latitude !== profile?.location?.latitude ||
+    location?.longitude !== profile?.location?.longitude;
+
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (loading) return;
     setError(null);
     setInfo(null);
 
@@ -76,6 +92,7 @@ export function HospitalProfileForm({ profile }: { profile: Hospital | null }) {
   }
 
   async function onSubmitVerification() {
+    if (loading) return;
     setError(null);
     setInfo(null);
     setLoading(true);
@@ -93,102 +110,154 @@ export function HospitalProfileForm({ profile }: { profile: Hospital | null }) {
   const canResubmit = status === "REJECTED" || status === "UNVERIFIED";
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
-        <p className="font-medium text-gray-800">
-          Verification: {status ?? "No profile yet"}
-        </p>
-        <p className="text-gray-600">
-          {status ? STATUS_COPY[status] : "Create a profile to request verification."}
-        </p>
-        {status === "REJECTED" && rejectionReason && (
-          <p className="mt-2 text-red-700">Reason: {rejectionReason}</p>
-        )}
-        <p className="mt-2 text-xs text-gray-500">
-          HOSPITAL role ≠ verified organization. Only VERIFIED hospitals receive escalations.
-        </p>
-      </div>
+    <div className="flex flex-col gap-8">
+      <section aria-labelledby="org-summary-heading" className="flex flex-col gap-3">
+        <SectionHeader id="org-summary-heading" title="Organization summary" />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
+            <p className="text-label text-text-secondary">Organization</p>
+            <p className="text-body-strong text-text">
+              {profile?.name || "Not created yet"}
+            </p>
+            <p className="text-caption text-text-tertiary">Hospital</p>
+          </div>
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
+            <p className="text-label text-text-secondary">Verification</p>
+            {status ? (
+              <StatusChip kind="verification" value={status} />
+            ) : (
+              <p className="text-body-strong text-text">No profile yet</p>
+            )}
+          </div>
+        </div>
+      </section>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          Hospital name
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            className={inputClassName}
+      <form onSubmit={onSubmit} className="flex flex-col gap-8" noValidate>
+        <section aria-labelledby="org-info-heading" className="flex flex-col gap-4">
+          <SectionHeader
+            id="org-info-heading"
+            title="Organization information"
+            description="Name, phone, and address are used when your hospital is escalated to."
+          />
+
+          <FormField label="Hospital name" error={fieldErrors.name || null} required>
+            {({ id, describedBy, invalid, className, required }) => (
+              <input
+                id={id}
+                name="name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                aria-describedby={describedBy}
+                aria-invalid={invalid}
+                required={required}
+                className={className}
+              />
+            )}
+          </FormField>
+
+          <FormField
+            label="Phone"
+            helperText="Reachable number for emergency coordination."
+            error={fieldErrors.contactPhone || null}
             required
-          />
-          {fieldErrors.name && <span className="font-normal text-red-600">{fieldErrors.name}</span>}
-        </label>
+          >
+            {({ id, describedBy, invalid, className, required }) => (
+              <input
+                id={id}
+                type="tel"
+                name="contactPhone"
+                value={contactPhone}
+                onChange={(event) => setContactPhone(event.target.value)}
+                aria-describedby={describedBy}
+                aria-invalid={invalid}
+                required={required}
+                className={className}
+              />
+            )}
+          </FormField>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          Phone
-          <input
-            value={contactPhone}
-            onChange={(event) => setContactPhone(event.target.value)}
-            className={inputClassName}
-            required
-          />
-          {fieldErrors.contactPhone && (
-            <span className="font-normal text-red-600">{fieldErrors.contactPhone}</span>
-          )}
-        </label>
+          <FormField label="Address" error={fieldErrors.address || null} required>
+            {({ id, describedBy, invalid, className, required }) => (
+              <textarea
+                id={id}
+                name="address"
+                rows={3}
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                aria-describedby={describedBy}
+                aria-invalid={invalid}
+                required={required}
+                className={className}
+              />
+            )}
+          </FormField>
 
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          Address
-          <textarea
-            value={address}
-            onChange={(event) => setAddress(event.target.value)}
-            className={inputClassName}
-            rows={3}
-            required
-          />
-          {fieldErrors.address && (
-            <span className="font-normal text-red-600">{fieldErrors.address}</span>
-          )}
-        </label>
+          <label className="flex min-h-control cursor-pointer items-start gap-3 rounded-lg border border-border-strong bg-surface px-4 py-3 focus-within:ring-2 focus-within:ring-info focus-within:ring-offset-1">
+            <input
+              type="checkbox"
+              name="has24hEmergency"
+              checked={has24hEmergency}
+              onChange={(event) => setHas24hEmergency(event.target.checked)}
+              className="mt-1 h-4 w-4"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-body-strong text-text">24-hour emergency services</span>
+              <span className="text-caption text-text-secondary">
+                Indicates your hospital operates emergency services around the clock.
+              </span>
+            </span>
+          </label>
+        </section>
 
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-          <input
-            type="checkbox"
-            checked={has24hEmergency}
-            onChange={(event) => setHas24hEmergency(event.target.checked)}
+        <section aria-labelledby="org-location-heading" className="flex flex-col gap-3">
+          <SectionHeader
+            id="org-location-heading"
+            title="Location"
+            description="Used to find nearby organizations during escalation. Exact coordinates are not shown here."
           />
-          24-hour emergency services
-        </label>
+          <fieldset
+            aria-invalid={fieldErrors.location ? true : undefined}
+            className="flex flex-col gap-2"
+          >
+            <legend className="sr-only">Location</legend>
+            <LocationPicker value={location} onChange={setLocation} />
+            {fieldErrors.location && (
+              <p role="alert" className="text-caption text-danger">
+                {fieldErrors.location}
+              </p>
+            )}
+          </fieldset>
+        </section>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-medium text-gray-700">Location</legend>
-          <LocationPicker value={location} onChange={setLocation} />
-          {fieldErrors.location && <span className="text-sm text-red-600">{fieldErrors.location}</span>}
-        </fieldset>
+        <UnsavedChangesNote visible={dirty && !loading} />
 
         {error && (
-          <p role="alert" className="text-sm text-red-600">
+          <Alert variant="danger" title="Could not save">
             {error}
-          </p>
+          </Alert>
         )}
-        {info && <p className="text-sm text-green-700">{info}</p>}
+        {info && <Alert variant="success">{info}</Alert>}
 
-        <button
+        <Button
           type="submit"
+          fullWidth
+          loading={loading}
+          loadingLabel="Saving…"
           disabled={loading}
-          className="rounded-xl bg-emergency px-4 py-3 font-semibold text-white disabled:opacity-60"
         >
-          {loading ? "Saving…" : profile ? "Save profile" : "Create profile"}
-        </button>
+          {profile ? "Save profile" : "Create profile"}
+        </Button>
       </form>
 
-      {canResubmit && (
-        <button
-          type="button"
-          disabled={loading}
-          onClick={onSubmitVerification}
-          className="rounded-xl border border-emergency px-4 py-3 font-semibold text-emergency disabled:opacity-60"
-        >
-          Resubmit for verification
-        </button>
-      )}
+      <OrganizationVerificationPanel
+        status={status}
+        rejectionReason={rejectionReason}
+        roleLabel="HOSPITAL"
+        organizationLabel="hospitals"
+        canSubmit={canResubmit}
+        loading={loading}
+        onSubmit={() => void onSubmitVerification()}
+      />
     </div>
   );
 }

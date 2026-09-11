@@ -3,14 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { escalateBloodRequestAction } from "@/app/(requester)/actions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function EscalateNowButton({ requestId }: { requestId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
   async function onEscalate() {
+    if (loading) return;
     setError(null);
     setInfo(null);
     setLoading(true);
@@ -25,25 +30,46 @@ export function EscalateNowButton({ requestId }: { requestId: string }) {
         ? "Escalation is already active for this request."
         : "Request escalated to nearby hospitals and blood banks."
     );
+    setOpen(false);
     router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <button
+      <Button
         type="button"
-        onClick={onEscalate}
+        variant="emergency"
+        fullWidth
         disabled={loading}
-        className="rounded-xl border-2 border-red-800 bg-red-800 px-4 py-3 text-sm font-bold text-white hover:bg-red-900 disabled:opacity-60"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
       >
-        {loading ? "Escalating…" : "Escalate Now"}
-      </button>
+        Escalate Now
+      </Button>
+
+      <ConfirmDialog
+        open={open}
+        onClose={() => {
+          if (!loading) setOpen(false);
+        }}
+        onConfirm={() => void onEscalate()}
+        title="Escalate this emergency request?"
+        description="Nearby hospitals and blood banks may be contacted. Escalation does not guarantee supply or a response time."
+        confirmLabel="Escalate Now"
+        cancelLabel="Not now"
+        tone="emergency"
+        loading={loading}
+        loadingLabel="Escalating…"
+      />
+
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not escalate">
           {error}
-        </p>
+        </Alert>
       )}
-      {info && <p className="text-sm text-red-800">{info}</p>}
+      {info && <Alert variant="info">{info}</Alert>}
     </div>
   );
 }

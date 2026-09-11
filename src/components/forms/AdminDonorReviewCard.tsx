@@ -1,110 +1,198 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { verifyDonorAction, rejectDonorAction } from "@/app/(admin)/actions";
+import { Button } from "@/components/ui/Button";
+import { Alert } from "@/components/ui/Alert";
+import { StatusChip } from "@/components/ui/StatusChip";
+import { FormField } from "@/components/ui/FormField";
+import { BLOOD_GROUP_LABELS, type BloodGroup } from "@/lib/constants/bloodGroups";
 import type { PendingDonor } from "@/services/verificationService";
 
+/**
+ * Admin review card for one pending donor.
+ *
+ * Presentation only. `verifyDonorAction` / `rejectDonorAction` are the
+ * exact existing server actions — same names, same payloads, same
+ * validation. The rejection-reason minimum (5 characters) mirrors
+ * `donorRejectSchema` exactly; it is not a new rule.
+ *
+ * `isAvailable` is the DTO availability flag, not eligibility. This card
+ * does not apply the 56-day rule or any other client-side calculation.
+ *
+ * Reject stays an inline reason + button, matching the existing
+ * interaction (no ConfirmDialog — the original flow never used one).
+ */
+function formatWaitingSince(updatedAt: string): string {
+  return new Date(updatedAt).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDonationDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (match) {
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export function AdminDonorReviewCard({ donor }: { donor: PendingDonor }) {
+  const headingId = useId();
   const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+
+  const busy = verifying || rejecting;
+  const bloodGroupLabel =
+    BLOOD_GROUP_LABELS[donor.bloodGroup as BloodGroup] ?? donor.bloodGroup;
 
   async function onVerify() {
+    if (busy) return;
     setError(null);
     setInfo(null);
-    setLoading(true);
+    setVerifying(true);
     const result = await verifyDonorAction(donor.donorId);
-    setLoading(false);
+    setVerifying(false);
     if ("error" in result) {
       setError(result.error);
       return;
     }
-    setInfo("Verified.");
+    setInfo("Donor verified.");
   }
 
   async function onReject() {
+    if (busy) return;
     setError(null);
     setInfo(null);
-
+    setReasonError(null);
     if (reason.trim().length < 5) {
-      setError("Rejection reason is required (at least 5 characters).");
+      setReasonError("Rejection reason must be at least 5 characters.");
       return;
     }
-
-    setLoading(true);
+    setRejecting(true);
     const result = await rejectDonorAction(donor.donorId, reason);
-    setLoading(false);
+    setRejecting(false);
     if ("error" in result) {
       setError(result.error);
       return;
     }
-    setInfo("Rejected.");
+    setInfo("Donor rejected.");
   }
 
   return (
-    <article className="flex flex-col gap-3 rounded-xl border border-gray-200 p-4">
+    <article
+      aria-labelledby={headingId}
+      className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
+    >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-800">
-          DONOR
+        <span className="inline-flex items-center rounded-sm border border-border bg-muted px-2 py-0.5 text-caption font-medium text-text-secondary">
+          {bloodGroupLabel}
         </span>
-        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-900">
-          {donor.verificationStatus}
-        </span>
+        <StatusChip kind="verification" value={donor.verificationStatus} />
       </div>
 
-      <div>
-        <h2 className="text-base font-semibold text-gray-900">{donor.donorName}</h2>
-        <p className="text-sm text-gray-600">Blood group: {donor.bloodGroup}</p>
-        <p className="text-sm text-gray-600">
-          Eligibility: {donor.isAvailable ? "Available" : "Not available"}
-        </p>
-        {donor.lastDonationDate && (
-          <p className="text-sm text-gray-600">Last donation: {donor.lastDonationDate}</p>
+      <div className="flex flex-col gap-1">
+        <h3 id={headingId} className="text-body-strong text-text">
+          {donor.donorName}
+        </h3>
+        <dl className="flex flex-col gap-0.5 text-body text-text-secondary">
+          <div className="flex flex-wrap gap-1">
+            <dt className="text-text-tertiary">Availability:</dt>
+            <dd>{donor.isAvailable ? "Available" : "Not available"}</dd>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            <dt className="text-text-tertiary">Night availability:</dt>
+            <dd>{donor.isAvailableAtNight ? "Yes" : "No"}</dd>
+          </div>
+          {donor.lastDonationDate && (
+            <div className="flex flex-wrap gap-1">
+              <dt className="text-text-tertiary">Last donation:</dt>
+              <dd>{formatDonationDate(donor.lastDonationDate)}</dd>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-1">
+            <dt className="text-text-tertiary">Location:</dt>
+            <dd>{donor.locationSummary ?? "Location missing"}</dd>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            <dt className="text-text-tertiary">Waiting since:</dt>
+            <dd>{formatWaitingSince(donor.updatedAt)}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <FormField
+        label="Rejection reason"
+        helperText="Required to reject — 5 to 500 characters."
+        error={reasonError}
+      >
+        {({ id, describedBy, invalid, className }) => (
+          <textarea
+            id={id}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+              if (reasonError) setReasonError(null);
+            }}
+            aria-describedby={describedBy}
+            aria-invalid={invalid}
+            maxLength={500}
+            rows={2}
+            disabled={busy}
+            placeholder="Explain why this donor is being rejected"
+            className={className}
+          />
         )}
-        <p className="text-sm text-gray-500">{donor.locationSummary ?? "Location missing"}</p>
-        <p className="text-sm text-gray-500">
-          Night availability: {donor.isAvailableAtNight ? "Yes" : "No"}
-        </p>
-      </div>
-
-      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        Rejection reason
-        <textarea
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm outline-none focus:border-emergency"
-          rows={2}
-          placeholder="Required when rejecting"
-        />
-      </label>
+      </FormField>
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
-          disabled={loading}
+          variant="primary"
+          size="sm"
+          disabled={busy}
+          loading={verifying}
+          loadingLabel="Verifying…"
           onClick={onVerify}
-          className="rounded-xl bg-emergency px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          aria-label={`Verify ${donor.donorName}`}
         >
           Verify
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          disabled={loading}
+          variant="outline"
+          size="sm"
+          disabled={busy}
+          loading={rejecting}
+          loadingLabel="Rejecting…"
           onClick={onReject}
-          className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 disabled:opacity-60"
+          aria-label={`Reject ${donor.donorName}`}
         >
           Reject
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not save your decision">
           {error}
-        </p>
+        </Alert>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
+      {info && <Alert variant="success">{info}</Alert>}
     </article>
   );
 }
-

@@ -180,14 +180,16 @@ describe("Phase 8A UI wiring", () => {
     expect(bank).toContain("BloodBankProfileForm");
   });
 
-  it("adds admin organization verification page and keeps donor verification for Phase 9", () => {
+  it("adds admin organization verification page, distinct from the donor verification queue", () => {
     const orgs = readFileSync(
       path.join(root, "src/app/(admin)/admin/organizations/page.tsx"),
       "utf8"
     );
     const adminHome = readFileSync(path.join(root, "src/app/(admin)/admin/page.tsx"), "utf8");
     expect(orgs).toContain("listPendingOrganizations");
-    expect(orgs).toContain("Donor verification remains Phase 9");
+    // Donor verification (Phase 9) shipped as its own queue at /admin/donors —
+    // this assertion no longer claims it "remains Phase 9" (Phase 11G Step 2).
+    expect(orgs).not.toContain("Donor verification remains Phase 9");
     expect(adminHome).toContain("/admin/organizations");
   });
 

@@ -3,19 +3,34 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { respondToEscalationAction } from "@/app/(org)/actions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { ESCALATION_STATUS_LABELS } from "@/components/ui/StatusChip";
 
+/**
+ * Organization response to one escalation target — presentation only.
+ *
+ * Same contract as before: `respondToEscalationAction(targetId, response)`
+ * with the same three response values. No new actions, no new statuses,
+ * no new validation. The server still decides whether a response is
+ * accepted; this component only prevents duplicate submits and surfaces
+ * the existing error/human status labels.
+ */
 export function OrgEscalationResponseButtons({
   targetId,
   currentStatus,
 }: {
   targetId: string;
-  currentStatus: string;
+  currentStatus: "PENDING" | "ACKNOWLEDGED" | "CAN_SUPPLY" | "CANNOT_HELP";
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState<string | null>(null);
+  const [loading, setLoading] = useState<"ACKNOWLEDGED" | "CAN_SUPPLY" | "CANNOT_HELP" | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
 
   async function respond(response: "ACKNOWLEDGED" | "CAN_SUPPLY" | "CANNOT_HELP") {
+    if (loading) return;
     setError(null);
     setLoading(response);
     const result = await respondToEscalationAction(targetId, response);
@@ -30,38 +45,49 @@ export function OrgEscalationResponseButtons({
   const disabled = loading !== null;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-2">
-        <button
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button
           type="button"
+          variant="secondary"
+          className="sm:flex-1"
           disabled={disabled}
-          onClick={() => respond("ACKNOWLEDGED")}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium hover:bg-gray-50 disabled:opacity-60"
+          loading={loading === "ACKNOWLEDGED"}
+          loadingLabel="Saving…"
+          onClick={() => void respond("ACKNOWLEDGED")}
         >
-          {loading === "ACKNOWLEDGED" ? "Saving…" : "Acknowledge"}
-        </button>
-        <button
+          Acknowledge
+        </Button>
+        <Button
           type="button"
+          variant="primary"
+          className="sm:flex-1"
           disabled={disabled}
-          onClick={() => respond("CAN_SUPPLY")}
-          className="rounded-lg bg-emergency px-3 py-2 text-sm font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
+          loading={loading === "CAN_SUPPLY"}
+          loadingLabel="Saving…"
+          onClick={() => void respond("CAN_SUPPLY")}
         >
-          {loading === "CAN_SUPPLY" ? "Saving…" : "Can Supply"}
-        </button>
-        <button
+          Can supply
+        </Button>
+        <Button
           type="button"
+          variant="outline"
+          className="sm:flex-1"
           disabled={disabled}
-          onClick={() => respond("CANNOT_HELP")}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+          loading={loading === "CANNOT_HELP"}
+          loadingLabel="Saving…"
+          onClick={() => void respond("CANNOT_HELP")}
         >
-          {loading === "CANNOT_HELP" ? "Saving…" : "Cannot Help"}
-        </button>
+          Cannot help
+        </Button>
       </div>
-      <p className="text-xs text-gray-500">Current response: {currentStatus}</p>
+      <p className="text-caption text-text-tertiary">
+        Current response: {ESCALATION_STATUS_LABELS[currentStatus]}
+      </p>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not save response">
           {error}
-        </p>
+        </Alert>
       )}
     </div>
   );

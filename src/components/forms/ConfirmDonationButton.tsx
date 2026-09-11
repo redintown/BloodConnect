@@ -3,14 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { confirmDonationReceivedAction } from "@/app/(requester)/actions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function ConfirmDonationButton({ requestId }: { requestId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onConfirm() {
-    if (!window.confirm("Confirm that you received the donation?")) return;
+    if (loading) return;
     setError(null);
     setLoading(true);
     const result = await confirmDonationReceivedAction(requestId);
@@ -19,23 +23,44 @@ export function ConfirmDonationButton({ requestId }: { requestId: string }) {
       setError(result.error);
       return;
     }
+    setOpen(false);
     router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <button
+      <Button
         type="button"
-        onClick={onConfirm}
+        variant="primary"
+        fullWidth
         disabled={loading}
-        className="rounded-xl bg-emergency px-4 py-3 text-sm font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
       >
-        {loading ? "Confirming…" : "Confirm Donation Received"}
-      </button>
+        Confirm Donation Received
+      </Button>
+
+      <ConfirmDialog
+        open={open}
+        onClose={() => {
+          if (!loading) setOpen(false);
+        }}
+        onConfirm={() => void onConfirm()}
+        title="Confirm that you received the donation?"
+        description="This marks the request completed and records the donation for the accepted donor."
+        confirmLabel="Confirm received"
+        cancelLabel="Not yet"
+        tone="primary"
+        loading={loading}
+        loadingLabel="Confirming…"
+      />
+
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not confirm">
           {error}
-        </p>
+        </Alert>
       )}
     </div>
   );

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { findMatchingDonorsAction } from "@/app/(requester)/actions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 
 export function FindMatchingDonorsButton({
   requestId,
@@ -17,6 +19,7 @@ export function FindMatchingDonorsButton({
   const [info, setInfo] = useState<string | null>(null);
 
   async function onFind() {
+    if (loading) return;
     setError(null);
     setInfo(null);
     setLoading(true);
@@ -47,24 +50,23 @@ export function FindMatchingDonorsButton({
 
   return (
     <div className="flex flex-col gap-2">
-      <button
+      <Button
         type="button"
-        onClick={onFind}
+        variant={hasExistingMatches ? "secondary" : "primary"}
+        fullWidth
+        loading={loading}
+        loadingLabel="Finding donors…"
         disabled={loading}
-        className={
-          hasExistingMatches
-            ? "rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-            : "rounded-xl bg-emergency px-4 py-3 text-sm font-semibold text-white hover:bg-emergency-hover disabled:opacity-60"
-        }
+        onClick={() => void onFind()}
       >
-        {loading ? "Finding donors…" : idleLabel}
-      </button>
+        {idleLabel}
+      </Button>
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not find donors">
           {error}
-        </p>
+        </Alert>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
+      {info && <Alert variant="success">{info}</Alert>}
     </div>
   );
 }

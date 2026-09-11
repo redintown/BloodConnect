@@ -3,14 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cancelBloodRequestAction } from "@/app/(requester)/actions";
+import { Alert } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function CancelRequestButton({ requestId }: { requestId: string }) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onCancel() {
-    if (!window.confirm("Cancel this blood request?")) return;
+  async function onConfirm() {
+    if (loading) return;
     setError(null);
     setLoading(true);
     const result = await cancelBloodRequestAction(requestId);
@@ -19,23 +23,44 @@ export function CancelRequestButton({ requestId }: { requestId: string }) {
       setError(result.error);
       return;
     }
+    setOpen(false);
     router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <button
+      <Button
         type="button"
-        onClick={onCancel}
+        variant="outline"
+        fullWidth
         disabled={loading}
-        className="rounded-xl border border-gray-300 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
       >
-        {loading ? "Cancelling…" : "Cancel request"}
-      </button>
+        Cancel request
+      </Button>
+
+      <ConfirmDialog
+        open={open}
+        onClose={() => {
+          if (!loading) setOpen(false);
+        }}
+        onConfirm={() => void onConfirm()}
+        title="Cancel this blood request?"
+        description="Matching and donor outreach for this request will stop. You can create a new request later if you still need blood."
+        confirmLabel="Cancel request"
+        cancelLabel="Keep request"
+        tone="destructive"
+        loading={loading}
+        loadingLabel="Cancelling…"
+      />
+
       {error && (
-        <p role="alert" className="text-sm text-red-600">
+        <Alert variant="danger" title="Could not cancel">
           {error}
-        </p>
+        </Alert>
       )}
     </div>
   );

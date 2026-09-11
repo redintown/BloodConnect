@@ -27,8 +27,9 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
  * MIGRATION NOTE: /how-it-works still uses this bar. It adopts PublicHeader
  * in the Phase 11C step that redesigns it, and its path joins this list then.
  *
- * Authenticated portals that adopt AppShell + DesktopNav (currently /donor)
- * are hidden by path prefix below — DesktopNav and DonorShellHeader already
+ * Authenticated portals that adopt AppShell + DesktopNav (/donor, requester
+ * `/requests` + `/request-blood`, `/hospital`, `/blood-bank`, `/admin`) are
+ * hidden by path below — DesktopNav and the portal shell header already
  * carry branding and account controls. Do not render both, or the logo and
  * log-out control would appear twice.
  */
@@ -37,7 +38,13 @@ const HIDDEN_ON = ["/", "/login", "/register", "/find-blood", "/about"];
 function ownsOwnChrome(pathname: string | null): boolean {
   if (!pathname) return false;
   if (HIDDEN_ON.includes(pathname)) return true;
-  return pathname === "/donor" || pathname.startsWith("/donor/");
+  if (pathname === "/donor" || pathname.startsWith("/donor/")) return true;
+  if (pathname === "/request-blood") return true;
+  if (pathname === "/requests" || pathname.startsWith("/requests/")) return true;
+  if (pathname === "/hospital" || pathname.startsWith("/hospital/")) return true;
+  if (pathname === "/blood-bank" || pathname.startsWith("/blood-bank/")) return true;
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
+  return false;
 }
 
 export function AuthNav() {
